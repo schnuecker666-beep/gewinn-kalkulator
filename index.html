@@ -147,8 +147,8 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
   .sc{border:1px solid #ccc}
 }
 </style>
-<!-- Barcode Scanner Library -->
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@1.3.4/dist/full/zxing_full.min.js"></script>
+<!-- Barcode Scanner -->
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 <body>
 <header>
@@ -192,7 +192,7 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
         <div style="position:relative;width:100%;max-width:400px;padding:16px">
           <div style="color:#fff;font-size:15px;font-weight:600;text-align:center;margin-bottom:12px">📷 Barcode scannen</div>
           <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
-            <video id="scanner-video" style="width:100%;display:block;max-height:60vh;object-fit:cover" playsinline autoplay muted></video>
+            <div id="scanner-video" style="width:100%;max-height:60vh;overflow:hidden;border-radius:8px;background:#000"><video style="width:100%" autoplay muted playsinline></video></div>
             <!-- Fadenkreuz -->
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
               <div style="width:70%;height:35%;border:2px solid rgba(255,255,0,.8);border-radius:8px;box-shadow:0 0 0 2000px rgba(0,0,0,.3)"></div>
@@ -972,74 +972,77 @@ function renderTagesUmsatz(){
     <span style="color:${tRG>=0?'var(--green)':'var(--red)'}">Gewinn: <b>${tRG.toFixed(2)}€</b></span>`;
 }
 
-// ═══ BARCODE SCANNER ═══
-let scannerActive=false, scannerStream=null, scannerInterval=null;
+// ═══ BARCODE SCANNER (QuaggaJS) ═══
+let scannerRunning=false;
 
-async function startScanner(){
+function startScanner(){
   const modal=document.getElementById('scanner-modal');
-  const video=document.getElementById('scanner-video');
   const status=document.getElementById('scanner-status');
   modal.style.display='flex';
   status.textContent='Kamera wird gestartet…';
-  try{
-    scannerStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}
-    });
-    video.srcObject=scannerStream;
-    await video.play();
-    scannerActive=true;
-    status.textContent='Barcode in den Rahmen halten…';
-    scannerInterval=setInterval(()=>scanFrame(video),300);
-  }catch(err){
-    status.textContent='❌ Kamera nicht verfügbar: '+err.message;
-    console.error(err);
-  }
-}
 
-async function scanFrame(video){
-  if(!scannerActive||video.readyState<2) return;
-  try{
-    const canvas=document.createElement('canvas');
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
-    canvas.getContext('2d').drawImage(video,0,0);
-    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.9));
-    const arr=new Uint8Array(await blob.arrayBuffer());
-    // Try ZXing WASM if available
-    if(window.ZXing){
-      const result=await ZXing.readBarcodeFromRawImage(arr,{tryHarder:true});
-      if(result&&result.text){
-        onBarcodeDetected(result.text);
-        return;
-      }
+  Quagga.init({
+    inputStream:{
+      type:'LiveStream',
+      target:document.getElementById('scanner-video'),
+      constraints:{
+        facingMode:'environment',
+        width:{min:640,ideal:1280},
+        height:{min:480,ideal:720},
+      },
+      area:{ top:"20%", right:"10%", left:"10%", bottom:"20%" }
+    },
+    locator:{patchSize:'medium',halfSample:false},
+    numOfWorkers:2,
+    frequency:15,
+    decoder:{
+      readers:['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader'],
+      multiple:false
+    },
+    locate:true
+  }, function(err){
+    if(err){
+      status.textContent='❌ Kamera Fehler: '+err.message;
+      console.error(err);
+      return;
     }
-    // Fallback: BarcodeDetector API (Chrome/Android)
-    if('BarcodeDetector' in window){
-      const bd=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e']});
-      const bitmapURL=URL.createObjectURL(blob);
-      const img=new Image();
-      img.src=bitmapURL;
-      await new Promise(r=>{img.onload=r});
-      const codes=await bd.detect(img);
-      URL.revokeObjectURL(bitmapURL);
-      if(codes.length>0) onBarcodeDetected(codes[0].rawValue);
+    scannerRunning=true;
+    status.textContent='Barcode in den Rahmen halten…';
+    Quagga.start();
+  });
+
+  // Debounce: nur auslösen wenn 3x hintereinander derselbe Code
+  let lastCode='', lastCount=0;
+  Quagga.onDetected(function(result){
+    const code=result.codeResult.code;
+    if(code===lastCode){
+      lastCount++;
+      if(lastCount>=2) onBarcodeDetected(code);
+    } else {
+      lastCode=code;
+      lastCount=1;
     }
-  }catch(e){}
+  });
+
+  // Canvas-Overlay für Quagga ausblenden
+  Quagga.onProcessed(function(result){
+    const canvas=Quagga.canvas.dom.overlay;
+    if(canvas) canvas.style.display='none';
+  });
 }
 
 function onBarcodeDetected(code){
   stopScanner();
   document.getElementById('ean-in').value=code;
   lookupEAN();
-  // Kurzes Vibrations-Feedback auf Handy
-  if(navigator.vibrate) navigator.vibrate(100);
+  if(navigator.vibrate) navigator.vibrate([80,30,80]);
 }
 
 function stopScanner(){
-  scannerActive=false;
-  clearInterval(scannerInterval);
-  if(scannerStream) scannerStream.getTracks().forEach(t=>t.stop());
-  scannerStream=null;
+  if(scannerRunning){
+    Quagga.stop();
+    scannerRunning=false;
+  }
   document.getElementById('scanner-modal').style.display='none';
 }
 
