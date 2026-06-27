@@ -147,6 +147,8 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
   .sc{border:1px solid #ccc}
 }
 </style>
+<!-- Barcode Scanner Library -->
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@1.3.4/dist/full/zxing_full.min.js"></script>
 </head>
 <body>
 <header>
@@ -179,8 +181,26 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
       </div>
       <div class="field">
         <label>EAN scannen / eingeben</label>
-        <input id="ean-in" placeholder="EAN hier eingeben…" oninput="lookupEAN()" autocomplete="off">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="ean-in" placeholder="EAN hier eingeben…" oninput="lookupEAN()" autocomplete="off" style="flex:1">
+          <button onclick="startScanner()" id="scan-btn" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);cursor:pointer;font-size:16px;white-space:nowrap;color:var(--text)" title="Kamera scannen">📷</button>
+        </div>
         <div class="no-match" id="no-match" style="display:none">⚠️ Artikel nicht im Lager gefunden</div>
+      </div>
+      <!-- Scanner Modal -->
+      <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;flex-direction:column;align-items:center;justify-content:center">
+        <div style="position:relative;width:100%;max-width:400px;padding:16px">
+          <div style="color:#fff;font-size:15px;font-weight:600;text-align:center;margin-bottom:12px">📷 Barcode scannen</div>
+          <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
+            <video id="scanner-video" style="width:100%;display:block;max-height:60vh;object-fit:cover" playsinline autoplay muted></video>
+            <!-- Fadenkreuz -->
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+              <div style="width:70%;height:35%;border:2px solid rgba(255,255,0,.8);border-radius:8px;box-shadow:0 0 0 2000px rgba(0,0,0,.3)"></div>
+            </div>
+          </div>
+          <div id="scanner-status" style="color:#fff;font-size:12px;text-align:center;margin-top:10px;opacity:.7">Barcode in den Rahmen halten…</div>
+          <button onclick="stopScanner()" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:8px;background:#fff;color:#000;font-size:14px;font-weight:600;cursor:pointer">✕ Abbrechen</button>
+        </div>
       </div>
       <div class="field"><label>Artikel</label><input id="art-in" readonly placeholder="wird automatisch gefüllt"></div>
       <div class="field"><label>EK netto pro Stück</label><input id="ek-in" readonly placeholder="–"></div>
@@ -950,6 +970,77 @@ function renderTagesUmsatz(){
     <span style="color:var(--text2)">Umsatz: <b>${tVK.toFixed(2)}€</b></span>
     <span style="color:var(--red)">Gebühren: <b>${tFee.toFixed(2)}€</b></span>
     <span style="color:${tRG>=0?'var(--green)':'var(--red)'}">Gewinn: <b>${tRG.toFixed(2)}€</b></span>`;
+}
+
+// ═══ BARCODE SCANNER ═══
+let scannerActive=false, scannerStream=null, scannerInterval=null;
+
+async function startScanner(){
+  const modal=document.getElementById('scanner-modal');
+  const video=document.getElementById('scanner-video');
+  const status=document.getElementById('scanner-status');
+  modal.style.display='flex';
+  status.textContent='Kamera wird gestartet…';
+  try{
+    scannerStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}
+    });
+    video.srcObject=scannerStream;
+    await video.play();
+    scannerActive=true;
+    status.textContent='Barcode in den Rahmen halten…';
+    scannerInterval=setInterval(()=>scanFrame(video),300);
+  }catch(err){
+    status.textContent='❌ Kamera nicht verfügbar: '+err.message;
+    console.error(err);
+  }
+}
+
+async function scanFrame(video){
+  if(!scannerActive||video.readyState<2) return;
+  try{
+    const canvas=document.createElement('canvas');
+    canvas.width=video.videoWidth;
+    canvas.height=video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.9));
+    const arr=new Uint8Array(await blob.arrayBuffer());
+    // Try ZXing WASM if available
+    if(window.ZXing){
+      const result=await ZXing.readBarcodeFromRawImage(arr,{tryHarder:true});
+      if(result&&result.text){
+        onBarcodeDetected(result.text);
+        return;
+      }
+    }
+    // Fallback: BarcodeDetector API (Chrome/Android)
+    if('BarcodeDetector' in window){
+      const bd=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e']});
+      const bitmapURL=URL.createObjectURL(blob);
+      const img=new Image();
+      img.src=bitmapURL;
+      await new Promise(r=>{img.onload=r});
+      const codes=await bd.detect(img);
+      URL.revokeObjectURL(bitmapURL);
+      if(codes.length>0) onBarcodeDetected(codes[0].rawValue);
+    }
+  }catch(e){}
+}
+
+function onBarcodeDetected(code){
+  stopScanner();
+  document.getElementById('ean-in').value=code;
+  lookupEAN();
+  // Kurzes Vibrations-Feedback auf Handy
+  if(navigator.vibrate) navigator.vibrate(100);
+}
+
+function stopScanner(){
+  scannerActive=false;
+  clearInterval(scannerInterval);
+  if(scannerStream) scannerStream.getTracks().forEach(t=>t.stop());
+  scannerStream=null;
+  document.getElementById('scanner-modal').style.display='none';
 }
 
 // ═══ INIT ═══
