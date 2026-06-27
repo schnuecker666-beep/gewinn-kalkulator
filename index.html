@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gewinn-Kalkulator · eBay & Amazon</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;
+  --border:#dee2e6;--border2:#e9ecef;
+  --text:#212529;--text2:#6c757d;--text3:#adb5bd;
+  --blue:#1d4ed8;--green:#15803d;--red:#b91c1c;--orange:#d97706;
+  --ebay-bg:#fee2e2;--ebay-color:#991b1b;--ebay-border:#dc2626;
+  --amzn-bg:#fef3c7;--amzn-color:#92400e;--amzn-border:#d97706;
+  --low-bg:#d1fae5;--low-color:#065f46;--low-border:#059669;
+  --warn-bg:#fef9c3;--warn-border:#ca8a04;
+  --radius:10px;--radius-sm:6px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
+  --border:#334155;--border2:#475569;
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
+  --ebay-bg:#3b0e0e;--ebay-color:#fca5a5;
+  --amzn-bg:#3b2400;--amzn-color:#fcd34d;
+  --low-bg:#052e16;--low-color:#86efac;
+  --warn-bg:#422006;--warn-border:#d97706;
+}}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+.container{max-width:960px;margin:0 auto;padding:16px}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+header h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+header h1 .ver{font-size:10px;font-weight:400;color:var(--text2);background:var(--bg3);padding:2px 7px;border-radius:20px}
+.nav{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;background:var(--bg2);overflow-x:auto}
+.ntab{padding:11px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap}
+.ntab:hover{color:var(--text);background:var(--bg3)}
+.ntab.act{color:var(--text);border-color:var(--text)}
+.ntab .badge{font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1px 6px;color:var(--text2);margin-left:4px}
+.ntab .badge.warn{background:var(--warn-bg);border-color:var(--warn-border);color:var(--orange)}
+.pnl{display:none}.pnl.act{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.card-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px}
+.field{margin-bottom:11px}
+.field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(29,78,216,.12)}
+.field input[readonly]{background:var(--bg3);color:var(--text2);cursor:default}
+.field .hint{font-size:11px;color:var(--text3);margin-top:3px}
+.no-match{font-size:12px;color:var(--red);margin-top:4px;font-weight:500}
+.plat-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.plat-btn{padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .15s;font-family:var(--font)}
+.plat-btn.e.sel{border-color:var(--ebay-border);background:var(--ebay-bg);color:var(--ebay-color)}
+.plat-btn.a.sel{border-color:var(--amzn-border);background:var(--amzn-bg);color:var(--amzn-color)}
+.fee-toggle-wrap{margin-bottom:11px}
+.fee-toggle-wrap label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.fee-toggle{display:flex;gap:6px;flex-wrap:wrap}
+.fee-btn{padding:5px 12px;font-size:11px;font-weight:500;border:1.5px solid var(--border);border-radius:20px;background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font)}
+.fee-btn.sel-e{border-color:var(--ebay-border);background:var(--ebay-bg);color:var(--ebay-color)}
+.fee-btn.sel-a{border-color:var(--amzn-border);background:var(--amzn-bg);color:var(--amzn-color)}
+.fee-btn.sel-low{border-color:var(--low-border);background:var(--low-bg);color:var(--low-color)}
+.result{background:var(--bg3);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;border:1px solid var(--border2)}
+.result-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:480px){.result-grid{grid-template-columns:repeat(2,1fr)}}
+.ritem{text-align:center;background:var(--bg2);border-radius:var(--radius-sm);padding:10px 6px;border:1px solid var(--border2)}
+.ritem-l{font-size:10px;color:var(--text2);margin-bottom:3px;font-weight:500}
+.ritem-v{font-size:17px;font-weight:700}
+.ritem-v.g{color:var(--green)}.ritem-v.r{color:var(--red)}.ritem-v.b{color:var(--blue)}
+.ritem-sub{font-size:10px;color:var(--text3);margin-top:2px}
+/* marge warning */
+.marge-warn{background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;color:var(--orange);font-weight:500;margin-bottom:10px;display:none}
+.btn-save{width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:#1e293b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;transition:opacity .15s;font-family:var(--font)}
+.btn-save:hover{opacity:.85}
+.btn-save:disabled{opacity:.35;cursor:not-allowed}
+.save-hint{font-size:11px;color:var(--text3);text-align:center}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font)}
+.toolbar input:focus{outline:none;border-color:var(--blue)}
+.toolbar select{padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;background:var(--bg2);color:var(--text);font-family:var(--font)}
+.sum-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+@media(max-width:480px){.sum-row{grid-template-columns:1fr 1fr}}
+.sc{background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border:1px solid var(--border)}
+.sc-l{font-size:10px;color:var(--text2);font-weight:500;margin-bottom:2px}
+.sc-v{font-size:15px;font-weight:700}.sc-v.g{color:var(--green)}.sc-v.r{color:var(--red)}.sc-v.b{color:var(--blue)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:9px 9px;text-align:left;font-weight:700;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap}
+th.r{text-align:right}
+td{padding:8px 9px;border-bottom:1px solid var(--border2);vertical-align:middle;white-space:nowrap;color:var(--text)}
+td.r{text-align:right}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.plt-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.plt-e{background:var(--ebay-bg);color:var(--ebay-color)}
+.plt-a{background:var(--amzn-bg);color:var(--amzn-color)}
+.rg-pos{color:var(--green);font-weight:700}.rg-neg{color:var(--red);font-weight:700}
+.del-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:3px 6px;border-radius:4px}
+.del-btn:hover{color:var(--red);background:var(--ebay-bg)}
+.edit-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:3px 6px;border-radius:4px}
+.edit-btn:hover{color:var(--blue);background:#dbeafe}
+.empty{text-align:center;padding:40px;color:var(--text3);font-size:13px}
+/* Stock warning row */
+tr.stock-low td{background:color-mix(in srgb,var(--warn-bg) 50%,transparent)!important}
+tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!important}
+.stock-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+.stock-ok{background:#dcfce7;color:#166534}
+.stock-low-b{background:var(--warn-bg);color:var(--orange)}
+.stock-out-b{background:var(--ebay-bg);color:var(--red)}
+/* ADD/EDIT FORM */
+.add-form{background:var(--bg3);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;display:none;border:1px solid var(--border)}
+.add-form.open{display:block}
+.form-grid-main{display:grid;grid-template-columns:1fr 2fr 1fr 1fr;gap:10px;align-items:end}
+.form-grid-extra{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;align-items:end;margin-top:10px}
+@media(max-width:650px){
+  .form-grid-main{grid-template-columns:1fr 1fr}
+  .form-grid-extra{grid-template-columns:1fr 1fr}
+}
+.form-grid-main .field,.form-grid-extra .field{margin-bottom:0}
+.add-form-btns{display:flex;gap:8px;margin-top:12px}
+.btn{padding:8px 16px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font);transition:opacity .15s;border:none}
+.btn-primary{background:#1e293b;color:#fff}.btn-primary:hover{opacity:.85}
+.btn-secondary{border:1px solid var(--border)!important;background:var(--bg2);color:var(--text2)}.btn-secondary:hover{background:var(--bg3)}
+.btn-danger{border:1px solid #fca5a5!important;background:var(--bg2);color:var(--red)}.btn-danger:hover{background:var(--ebay-bg)}
+.btn-export{background:#1e293b;color:#fff}.btn-export:hover{opacity:.85}
+.btn-sync{background:#0f766e;color:#fff}.btn-sync:hover{opacity:.85}
+/* SYNC MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--radius);padding:24px;width:90%;max-width:480px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h2{font-size:15px;font-weight:700;margin-bottom:6px}
+.modal p{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.modal-btns{display:flex;gap:8px;flex-wrap:wrap}
+/* PRINT */
+@media print{
+  header,.nav,.toolbar,#btn-save,.save-hint,.del-btn,.edit-btn,.modal-overlay{display:none!important}
+  body{background:white;color:black;font-size:11px}
+  .container{max-width:100%;padding:0}
+  .pnl{display:none!important}
+  #pnl-monat{display:block!important}
+  #monat-report{display:block!important}
+  .tbl-wrap{border:1px solid #ccc;border-radius:0}
+  th,td{border-bottom:1px solid #ddd}
+  .rg-pos{color:#166534}.rg-neg{color:#991b1b}
+  .sc{border:1px solid #ccc}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>💰 Gewinn-Kalkulator <span class="ver">v2.0 · eBay &amp; Amazon</span></h1>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-sync" onclick="openSync()" style="font-size:11px;padding:6px 12px">⇅ Sync</button>
+  </div>
+</header>
+<div id="tages-bar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;gap:16px;align-items:center;font-size:12px;flex-wrap:wrap;color:var(--text)"></div>
+
+<div class="container">
+<div class="nav">
+  <button class="ntab act" onclick="showTab('vk',this)">🧮 Verkauf erfassen</button>
+  <button class="ntab" onclick="showTab('hist',this)">📋 Verlauf <span class="badge" id="hist-cnt">0</span></button>
+  <button class="ntab" onclick="showTab('lager',this)">📦 Lagerbestand <span class="badge" id="lager-cnt">0</span><span class="badge warn" id="warn-cnt" style="display:none"></span></button>
+  <button class="ntab" onclick="showTab('monat',this)">📅 Monatsarchiv</button>
+</div>
+
+<!-- ═══ VERKAUF ═══ -->
+<div class="pnl act" id="pnl-vk">
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Verkauf eingeben</div>
+      <div class="field">
+        <label>Plattform</label>
+        <div class="plat-btns">
+          <button class="plat-btn e" id="btn-e" onclick="selPlat('e')">eBay</button>
+          <button class="plat-btn a" id="btn-a" onclick="selPlat('a')">Amazon</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>EAN scannen / eingeben</label>
+        <input id="ean-in" placeholder="EAN hier eingeben…" oninput="lookupEAN()" autocomplete="off">
+        <div class="no-match" id="no-match" style="display:none">⚠️ Artikel nicht im Lager gefunden</div>
+      </div>
+      <div class="field"><label>Artikel</label><input id="art-in" readonly placeholder="wird automatisch gefüllt"></div>
+      <div class="field"><label>EK netto pro Stück</label><input id="ek-in" readonly placeholder="–"></div>
+      <div class="field"><label>Bestand</label><input id="bestand-in" readonly placeholder="–"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Verkaufsdetails</div>
+      <div class="field">
+        <label>Stückzahl</label>
+        <input id="stk-in" type="number" min="1" value="1" oninput="recalc()">
+        <div class="hint" id="ek-ges-hint"></div>
+      </div>
+      <div class="field">
+        <label>VK gesamt inkl. MwSt (€)</label>
+        <input id="vk-in" type="number" step="0.01" min="0" placeholder="0.00" oninput="recalc()">
+        <div class="hint">Gesamtbetrag wie auf eBay/Amazon angezeigt</div>
+      </div>
+      <div class="field">
+        <label>Versandkosten inkl. MwSt (€)</label>
+        <input id="vs-in" type="number" step="0.01" min="0" value="3.29" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>Kategorie</label>
+        <select id="cat-in" onchange="onCatChange()">
+          <option value="Drogerie">Drogerie &amp; Körperpflege</option>
+          <option value="Haushalt">Haushalt &amp; Wohnen</option>
+          <option value="Kleidung">Kleidung &amp; Accessoires</option>
+          <option value="Elektronik">Elektronik</option>
+          <option value="Auto">Auto &amp; Motorrad</option>
+          <option value="Spielzeug">Spielzeug</option>
+          <option value="Heimwerker">Heimwerker &amp; Baumarkt</option>
+          <option value="Haustiere">Haustiere</option>
+          <option value="Sonstiges">Sonstiges</option>
+        </select>
+      </div>
+      <div class="fee-toggle-wrap" id="fee-toggle-wrap" style="display:none">
+        <label>Gebührensatz</label>
+        <div class="fee-toggle" id="fee-toggle"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marge-warn" id="marge-warn"></div>
+
+  <div class="result">
+    <div class="result-header">
+      <div class="card-title">Ergebnis</div>
+      <span id="res-plat" style="font-size:11px;padding:2px 10px;border-radius:10px;font-weight:600"></span>
+      <span id="res-stk-info" style="font-size:11px;color:var(--text3)"></span>
+    </div>
+    <div class="result-grid">
+      <div class="ritem"><div class="ritem-l">VK netto</div><div class="ritem-v" id="r-vkn">–</div></div>
+      <div class="ritem"><div class="ritem-l">MwSt (19%)</div><div class="ritem-v" id="r-mwst">–</div></div>
+      <div class="ritem"><div class="ritem-l">Plattform-Gebühr</div><div class="ritem-v" id="r-geb">–</div><div class="ritem-sub" id="r-geb-pct"></div></div>
+      <div class="ritem"><div class="ritem-l">Versand</div><div class="ritem-v" id="r-vs">–</div></div>
+      <div class="ritem"><div class="ritem-l">EK (×<span id="r-stk">1</span>)</div><div class="ritem-v b" id="r-ek">–</div></div>
+      <div class="ritem"><div class="ritem-l">Gewinn + EK</div><div class="ritem-v" id="r-gew">–</div></div>
+      <div class="ritem"><div class="ritem-l">Reingewinn</div><div class="ritem-v" id="r-rg">–</div></div>
+      <div class="ritem"><div class="ritem-l">Marge</div><div class="ritem-v" id="r-mg">–</div></div>
+    </div>
+  </div>
+
+  <button class="btn-save" id="btn-save" onclick="saveVerkauf()" disabled>＋ Verkauf speichern</button>
+  <div class="save-hint">Bestand wird automatisch reduziert · CSV-Export im Verlauf-Tab</div>
+</div>
+
+<!-- ═══ VERLAUF ═══ -->
+<div class="pnl" id="pnl-hist">
+  <div class="toolbar">
+    <input id="hist-q" placeholder="🔍 Suchen…" oninput="renderHist()">
+    <select id="hist-plat" onchange="renderHist()">
+      <option value="">Alle Plattformen</option>
+      <option value="e">eBay</option>
+      <option value="a">Amazon</option>
+    </select>
+    <button class="btn btn-export" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-danger" onclick="clearHist()">🗑 Leeren</button>
+  </div>
+  <div class="sum-row" id="hist-sum"></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Datum</th><th>Plattform</th><th>Artikel</th>
+        <th class="r">Stk</th><th class="r">VK</th><th class="r">Versand</th>
+        <th class="r">Gebühr €</th><th class="r">Gebühr %</th><th class="r">EK ges.</th>
+        <th class="r">Reingewinn</th><th class="r">Marge</th><th></th>
+      </tr></thead>
+      <tbody id="hist-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ LAGERBESTAND ═══ -->
+<div class="pnl" id="pnl-lager">
+  <div class="toolbar">
+    <input id="lager-q" placeholder="🔍 Artikel oder EAN suchen…" oninput="renderLager()">
+    <select id="lager-filter" onchange="renderLager()">
+      <option value="">Alle Artikel</option>
+      <option value="low">⚠️ Niedrig</option>
+      <option value="out">🔴 Ausverkauft</option>
+    </select>
+    <button class="btn btn-primary" onclick="openAddForm()">＋ Artikel</button>
+    <button class="btn btn-export" onclick="exportLager()">⬇ CSV</button>
+  </div>
+
+  <div class="add-form" id="add-form">
+    <div class="card-title" id="form-title" style="margin-bottom:12px">Neuer Artikel</div>
+    <div class="form-grid-main">
+      <div class="field"><label>EAN</label><input id="nw-ean" placeholder="EAN…"></div>
+      <div class="field"><label>Artikelname</label><input id="nw-name" placeholder="Name…"></div>
+      <div class="field"><label>EK netto (€)</label><input id="nw-ek" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="field"><label>Kategorie</label>
+        <select id="nw-cat">
+          <option value="Drogerie">Drogerie</option><option value="Haushalt">Haushalt</option>
+          <option value="Kleidung">Kleidung</option><option value="Elektronik">Elektronik</option>
+          <option value="Auto">Auto</option><option value="Spielzeug">Spielzeug</option>
+          <option value="Heimwerker">Heimwerker</option><option value="Haustiere">Haustiere</option>
+          <option value="Sonstiges">Sonstiges</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid-extra">
+      <div class="field"><label>Bestand (Stk)</label><input id="nw-bestand" type="number" min="0" value="0" placeholder="0"></div>
+      <div class="field"><label>Mindestbestand</label><input id="nw-minbestand" type="number" min="0" value="3" placeholder="3"></div>
+      <div class="field"><label>Standard-VK (€)</label><input id="nw-vk" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="field"><label>Standard-Versand (€)</label><input id="nw-vs" type="number" step="0.01" min="0" placeholder="3.29"></div>
+      <div class="field"><label>Notiz</label><input id="nw-notiz" placeholder="z.B. nur eBay"></div>
+    </div>
+    <div class="add-form-btns">
+      <button class="btn btn-primary" onclick="saveArtikel()">✓ Speichern</button>
+      <button class="btn btn-secondary" onclick="closeAddForm()">Abbrechen</button>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>EAN</th>
+        <th style="cursor:pointer" onclick="sortLager('name')">Artikel <span class="lager-sort-btn" data-col="name"></span></th>
+        <th>Kat.</th>
+        <th class="r" style="cursor:pointer" onclick="sortLager('ek')">EK <span class="lager-sort-btn" data-col="ek"></span></th>
+        <th class="r">Std-VK</th><th class="r">Versand</th>
+        <th class="r" style="cursor:pointer" onclick="sortLager('bestand')">Bestand <span class="lager-sort-btn" data-col="bestand"></span></th>
+        <th class="r" style="cursor:pointer" onclick="sortLager('verkauft')">Verkauft <span class="lager-sort-btn" data-col="verkauft"></span></th>
+        <th class="r" style="cursor:pointer" onclick="sortLager('gewinn')">Ø Gew. <span class="lager-sort-btn" data-col="gewinn"></span></th>
+        <th style="cursor:pointer" onclick="sortLager('letzter')">Letzter VK <span class="lager-sort-btn" data-col="letzter"></span></th>
+        <th>Notiz</th><th></th>
+      </tr></thead>
+      <tbody id="lager-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ MONATSARCHIV ═══ -->
+<div class="pnl" id="pnl-monat">
+  <div class="toolbar">
+    <select id="monat-sel" onchange="renderMonat()" style="flex:1;max-width:200px">
+      <option value="">Monat wählen…</option>
+    </select>
+    <select id="monat-plat" onchange="renderMonat()">
+      <option value="">eBay + Amazon</option>
+      <option value="e">Nur eBay</option>
+      <option value="a">Nur Amazon</option>
+    </select>
+    <button class="btn btn-export" onclick="exportMonatCSV()">⬇ CSV</button>
+    <button class="btn btn-primary" onclick="drucken()">🖨 Drucken</button>
+  </div>
+  <div class="empty" id="monat-empty">Bitte einen Monat auswählen</div>
+  <div id="monat-report" style="display:none">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" id="monat-titel"></div>
+    <div class="sum-row" id="monat-sum"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px" id="monat-split"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Alle Verkäufe</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Datum</th><th>Plattform</th><th>Artikel</th>
+          <th class="r">Stk</th><th class="r">VK</th><th class="r">Versand</th>
+          <th class="r">Gebühr</th><th class="r">EK ges.</th>
+          <th class="r">Reingewinn</th><th class="r">Marge</th>
+        </tr></thead>
+        <tbody id="monat-body"></tbody>
+        <tfoot id="monat-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ SYNC MODAL ═══ -->
+<div class="modal-overlay" id="sync-modal">
+  <div class="modal">
+    <h2>⇅ Daten synchronisieren</h2>
+    <p>Exportiere alle Daten als JSON-Datei und importiere sie auf einem anderen Gerät.<br>
+    <strong>Tipp:</strong> Datei per WhatsApp, iCloud oder E-Mail ans andere Gerät senden.</p>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="exportJSON()">⬇ Alle Daten exportieren (.json)</button>
+      <label class="btn btn-secondary" style="cursor:pointer">
+        ⬆ Daten importieren
+        <input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
+      </label>
+      <button class="btn btn-secondary" onclick="closeSync()">Schließen</button>
+    </div>
+    <div id="sync-msg" style="margin-top:12px;font-size:12px;color:var(--green);display:none"></div>
+  </div>
+</div>
+
+<script>
+// ═══ STAMMDATEN ═══
+const INIT=[{ean:"4005900843883",name:"Nivea Deospray 150ml Men Sensitive",ek:1.89,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304693748",name:"Adidas Star Silber",ek:1.69,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470526328",name:"Bodentücher",ek:0.5,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470522542",name:"Permanent Marker",ek:0.49,cat:"Büro",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4032037731127",name:"Wärme Einlegesohlen",ek:0.52,cat:"Kleidung",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900246905",name:"Nivea Sun Sonnenmilch 200ml LF50+",ek:4.49,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303443474",name:"Adidas Deospray 150ml Fresh Endurance",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013891807111",name:"Derma Pelz",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"9002058695000",name:"Eiskratzer",ek:1.5,cat:"Auto",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4016479322426",name:"Wundverband XXL Duschpflaster",ek:0.75,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900916419",name:"Nivea ECO Rose",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3607347419853",name:"Adidas Fun",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303440923",name:"Adidas Pure Game",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8001090573049",name:"Blend-a-med Compl.Protect EXPERT",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000094328",name:"Nivea Deospray 150ml Men Sensitive",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900844095",name:"Nivea Dry Active",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303441180",name:"Adidas Dynamic",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100735192",name:"Fa Deospray 150ml Sweet Rose",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574661730318",name:"Neutrogena Set",ek:4.49,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900829368",name:"Nivea Deospray For Men Dry Active",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900829320",name:"Nivea Protect Care",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005556236107",name:"Creart Dimi Blume",ek:3.5,cat:"Spielzeug",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42417958",name:"Nivea Fresh Summer",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8700216169769",name:"Old Spice Deospray 150ml Rockstar",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162019038",name:"Fenjal Handcreme",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"40161723",name:"Poliboy Leder Intensiv Pflege 375ml",ek:2.1,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304696626",name:"Adidas After",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419365",name:"Nivea Deoroller 50ml Dry Comfort",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900669551",name:"Nivea Body Milk 250ml",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"B06YZH9GGK",name:"Fell",ek:1.0,cat:"Haustiere",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900843579",name:"NIVEA Deo Spray Fresh Natural",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470483652",name:"Elina Urea 3% Bodymilk 250ml",ek:0.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008033257855",name:"Löffel",ek:2.5,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100429282",name:"Fa Deospray 150ml Caribbean Wave",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470627124",name:"Elina Granatapfel Handcreme 75ml",ek:0.46,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900855398",name:"Nivea Deospray 200ml Fresh Natural",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900843418",name:"Nivea Deospray 150ml Fresh Ocean",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000048765",name:"Adidas Deo Fresh Active 150ml",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8006540947050",name:"Blend-a-med Zahncreme 75ml Extra Frisch",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4016479321320",name:"Nagellack Sabrina Klarlack 12ml",ek:0.45,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100185294",name:"Theramed 100ml Original im Spender",ek:1.35,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900108142",name:"Florena Handcreme 100ml Olivenöl",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574660527377",name:"Neutogena Bodymilk",ek:2.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42449683",name:"Hidrofugal Roll On 50ml Classic",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015000417136",name:"Loctide",ek:1.3,cat:"Heimwerker",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000049069",name:"Nivea Deospray 150ml Men Dry Impact",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574661745008",name:"Listerine",ek:0.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3600523715558",name:"L'Oreal Men Expert Invincible Sport",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574661685977",name:"Neutrogena Handcreme 50ml",ek:1.25,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303057985",name:"Adidas Champ",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3607349682309",name:"Adidas Control 0,35ml",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008033418997",name:"Eierschneider",ek:1.0,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008284861221",name:"Müllsäcke 120L 10er mit Zugband",ek:1.5,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900842985",name:"Nivea Deospray 200ml Men Fresh Active",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574661783642",name:"Neutrogena Geschenkset XXL",ek:4.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470548139",name:"Marvita med Bodylotion Urea 3% 250ml",ek:0.64,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4009903011119",name:"Ajona Zahncreme 25ml Stomatikum",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3574660085563",name:"Neutrogena Lippenpflege 4,8g LSF 4",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304696589",name:"Adidas Control 200ml",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162030873",name:"Gard Haarspray 145ml Bamboo",ek:0.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3600523715473",name:"L'Oreal Men Expert Carbon Protect",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008600433668",name:"Billy Boy 6er Extra Feucht",ek:2.2,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470482952",name:"Elina Urea 3% Handcreme 75ml",ek:0.46,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303440671",name:"Adidas Pro invi",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"7322540907520",name:"Tempo Sanft u s",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900243522",name:"Nivea Protect Care Deo",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4068101000011",name:"Theramed 100ml Naturweiss",ek:1.35,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419471",name:"Nivea Deoroller 50ml Original Care",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304475115",name:"Adidas Best Blau",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4016479322419",name:"Wundverband XXL Pflaster 5er",ek:0.53,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"5029053575292",name:"Feuchtes Toilettenpapier Cottonelle 12er",ek:0.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4058647040428",name:"Metall-Liebespaar #6574",ek:10.5,cat:"Sonstiges",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900669865",name:"Nivea Soft Milk 400ml",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8001841923840",name:"Old Spice Deostick 50ml Captain",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304696619",name:"Adidas Victory 200",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4045612007883",name:"CD Granatapfel",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4001895959455",name:"3m Band",ek:0.2,cat:"Heimwerker",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8006540947319",name:"Blend-a-med Zahncreme Classic 2x75ml",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900878403",name:"Nivea Green Tea",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419389",name:"Nivea Fresh Pure",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006592036843",name:"Trolljäger Jim",ek:2.0,cat:"Spielzeug",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304475139",name:"Adidas Deospray 150ml Champions League",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8006540947234",name:"Blend-a-med Classic 75ml",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000020532",name:"Nivea Joy",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000057927",name:"Atrix Creme 150ml Dose",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900637086",name:"Nivea Aloe 24h",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470626462",name:"Elina Urea 3% Fusscreme 75ml",ek:0.46,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008491211307",name:"Tetesept Badekugel",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4000869061286",name:"ORO Waschmaschinen Pflegereiniger",ek:0.65,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006671002011",name:"Scholl Hornhautentferner Pflaster 4St.",ek:2.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419464",name:"Pearl 0,6",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900843760",name:"Nivea BuW 48h",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4032037731110",name:"Sole M",ek:0.45,cat:"Kleidung",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162030002",name:"Gard Haarspray 250ml Extra stark",ek:1.7,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470168764",name:"Fliegenschutz f.d.Tür",ek:1.3,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304693809",name:"Adidas Dusch 250ml 3in1 Champ.League",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162029600",name:"Gard Shampoo 250ml gloss",ek:0.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4054596531741",name:"SCH. Brille",ek:5.0,cat:"Sonstiges",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304474859",name:"Adidas Best After Shave",ek:2.89,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100429107",name:"Fa Deospray 150ml Purple Passion",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8700216941914",name:"Old Spice Geschenkset Captain",ek:3.85,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000057330",name:"Atrix Schutzcreme Tube 100ml",ek:1.2,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4078500538503",name:"Gardena Dichtung",ek:1.0,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470404312",name:"Staubwedel CLEAN 6tlg magnetisch",ek:0.7,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8006540006092",name:"Oral B ZC Pro Repair Advanced 75ml",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616304693830",name:"Adidas Dusch 400ml UEFA",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8700216190985",name:"Blend-a-Dent Haftcreme 40g Krümelschutz",ek:2.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900843807",name:"Nivea Deospray Men 150ml Invisible B&W",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42389453",name:"Dry Active",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419914",name:"Nivea Cool Kick",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419358",name:"Nivea Dry impact",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4008033485685",name:"Moza Schneider",ek:2.0,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8718026580520",name:"Taschenlampe",ek:4.2,cat:"Elektronik",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4100420060519",name:"Liqui Kette",ek:2.0,cat:"Auto",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"42419433",name:"Nivea Deoroller 50ml Sensitive for Men",ek:2.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"7322541102092",name:"Feuchttücher",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8720181276378",name:"Duschdas 500ml For Men NFB",ek:0.8,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8720181348600",name:"Duschdas 500ml NFB Magnolia",ek:0.8,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8720181276446",name:"Duschdas 500ml Limette&Minze NFB",ek:0.8,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3600523715398",name:"L'Oreal Men Expert Invincible Man",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470548085",name:"Marvita med Bodylotion Aloe Vera",ek:0.64,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4001438103055",name:"Malerrolle Lackierwalze 12cm",ek:0.2,cat:"Heimwerker",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8901030866739",name:"Axe Dusch 250ml Alaska",ek:1.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4000401060012",name:"HOLSTE Schmierseife 1000ml",ek:0.9,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470636218",name:"Prothesenbürste 16cm",ek:0.47,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"9005800298955",name:"Nivea Dusch Men 250ml Deep Clean",ek:1.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8435495816232",name:"Ambi Pur WC Duftspüler Lemon 55ml",ek:0.8,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8435495816294",name:"Wilde Rose & Pink Grapefruit 55ml",ek:0.8,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8435495816386",name:"Lavender & Rosemary 55ml",ek:0.8,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8435495816324",name:"Bamboo & Lotus 55ml",ek:0.8,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8435495816355",name:"Fresh Water & Mint 55ml",ek:0.8,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"7322540907551",name:"Tempo Sanft u s (2)",ek:1.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8710447276631",name:"Axe Dusch 250ml Collission",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8720181431173",name:"Axe Dusch 250ml Flaxe",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162030552",name:"Fenjal GP Sensitiv Dusch 200ml",ek:4.8,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162035144",name:"Fenjal GP Intensiv Creme Dusche 200ml",ek:6.99,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162027132",name:"Fenjal GP Classic Set Ölbad",ek:7.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"5054563279279",name:"Corega Gebissreiniger Tabs 108er",ek:4.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4013162018291",name:"Fenjal Creme de Parfum 100ml",ek:4.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8700216941952",name:"Old Spice GP Gentleman Captain",ek:3.85,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000094403",name:"Nivea Deospray Men 150ml Protect Care",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100890655",name:"Schauma Shampoo 400ml 7 Kräuter",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100864915",name:"Schauma Shampoo 400ml For Men",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4015100864939",name:"Schauma Shampoo 400ml 7 Kräuter (2)",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470413109",name:"Grill Reinigungsbürste 21cm",ek:0.55,cat:"Haushalt",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4016369461334",name:"Lacalut Zahncreme 100ml Aktiv",ek:2.4,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900997937",name:"Nivea Sun Spray 200ml UV LSF30",ek:4.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4006000094212",name:"Nivea Deospray 150ml Men Dry Impact",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303444204",name:"Adidas Dusch 250ml Pre Sleep Calm",ek:1.1,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"6970244522191",name:"Kopfhörer",ek:1.5,cat:"Elektronik",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4005900669704",name:"Nivea Pump 625ml",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"3616303441586",name:"Adidas Deospray 150ml After Sport",ek:1.6,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470681355",name:"Elina Aloe Vera Handcreme 75ml",ek:0.46,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8700216795944",name:"Blend-a-Dent Ultimate Haftcreme 40g",ek:3.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4045612010388",name:"CD Softcreme 300ml Wasserlilie",ek:1.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"8006540796269",name:"Old Spice Deospray 150ml Original",ek:2.0,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4326470442567",name:"Elina 150ml unisex Vitality Care",ek:0.8,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4045612009429",name:"Seife CD 100g Aloe Vera",ek:0.5,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"26172347",name:"Deospray Today 200ml For Men Sport",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""},{ean:"4045612010067",name:"CD Deostick Men 40ml Cool Freshness",ek:0.9,cat:"Drogerie",bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:""}];
+
+const E_FEES={
+  Drogerie:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+  Haushalt:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:200,ov:.03}],
+  Heimwerker:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:200,ov:.03}],
+  Kleidung:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+  Elektronik:[{label:"Standard 6,5% + 0,45€",p:.065,fix:.45,lim:990,ov:.03}],
+  Auto:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+  Spielzeug:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+  Haustiere:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+  Sonstiges:[{label:"Standard 12% + 0,45€",p:.12,fix:.45,lim:990,ov:.03}],
+};
+const A_FEES={
+  Drogerie:[{label:"Standard 15%",p:.15,min:.30},{label:"Niedrigpreis 8% (unter 10€)",p:.08,min:.30,low:true}],
+  Haushalt:[{label:"Standard 15%",p:.15,min:.30},{label:"Niedrigpreis 8% (unter 20€)",p:.08,min:.30,low:true}],
+  Kleidung:[{label:"Standard 15%",p:.15,min:.30},{label:"Niedrigpreis 5% (unter 15€)",p:.05,min:.30,low:true}],
+  Elektronik:[{label:"Standard 7%",p:.07,min:.30}],
+  Auto:[{label:"Standard 15%",p:.15,min:.30}],
+  Spielzeug:[{label:"Standard 15%",p:.15,min:.30}],
+  Heimwerker:[{label:"Standard 12%",p:.12,min:.30}],
+  Haustiere:[{label:"Standard 15%",p:.15,min:.30},{label:"Niedrigpreis 5% (unter 10€)",p:.05,min:.30,low:true}],
+  Sonstiges:[{label:"Standard 15%",p:.15,min:.30}],
+};
+
+const MARGE_WARN_PCT=15; // Warnung unter 15% Marge
+
+// ═══ STORAGE ═══
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+// Lager: alte Einträge ohne neue Felder migrieren
+function migrateLager(arr){
+  return arr.map(r=>({
+    bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:'',
+    verkauftAnz:0,verkauftRG:0,letzterVK:null,...r
+  }));
+}
+
+let lager=migrateLager(lsGet('gk_lager')||INIT);
+let hist=lsGet('gk_hist')||[];
+let plat='e',curItem=null,selFeeIdx=0,editEAN=null;
+
+// ═══ HELPERS ═══
+function lsave(){lsSet('gk_lager',lager)}
+function hsave(){lsSet('gk_hist',hist)}
+
+function stockStatus(r){
+  if(r.bestand<=0) return 'out';
+  if(r.bestand<=r.minBestand) return 'low';
+  return 'ok';
+}
+
+function updateBadges(){
+  document.getElementById('hist-cnt').textContent=hist.length;
+  document.getElementById('lager-cnt').textContent=lager.length;
+  const warnN=lager.filter(r=>stockStatus(r)!=='ok').length;
+  const wb=document.getElementById('warn-cnt');
+  if(warnN>0){wb.style.display='';wb.textContent='⚠️ '+warnN}
+  else wb.style.display='none';
+}
+
+// ═══ TABS ═══
+function showTab(t,btn){
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('act'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('act'));
+  btn.classList.add('act');
+  document.getElementById('pnl-'+t).classList.add('act');
+  if(t==='monat'){populateMonatSelect();renderMonat();}
+  if(t==='vk') renderTagesUmsatz();
+}
+
+// ═══ PLATTFORM ═══
+function selPlat(p){
+  plat=p;
+  document.getElementById('btn-e').classList.toggle('sel',p==='e');
+  document.getElementById('btn-a').classList.toggle('sel',p==='a');
+  const badge=document.getElementById('res-plat');
+  badge.textContent=p==='e'?'eBay':'Amazon';
+  badge.style.cssText=p==='e'?'background:var(--ebay-bg);color:var(--ebay-color)':'background:var(--amzn-bg);color:var(--amzn-color)';
+  const vsIn=document.getElementById('vs-in');
+  if(!vsIn.dataset.touched){
+    vsIn.value=curItem&&curItem.stdVS?curItem.stdVS.toFixed(2):(p==='e'?'3.29':'4.30');
+  }
+  selFeeIdx=0;buildFeeToggle();recalc();
+}
+
+// ═══ FEE TOGGLE ═══
+function getFeeOpts(){
+  const cat=document.getElementById('cat-in').value;
+  return plat==='e'?(E_FEES[cat]||E_FEES.Sonstiges):(A_FEES[cat]||A_FEES.Sonstiges);
+}
+function buildFeeToggle(){
+  const opts=getFeeOpts();
+  const wrap=document.getElementById('fee-toggle-wrap');
+  const tog=document.getElementById('fee-toggle');
+  if(selFeeIdx>=opts.length) selFeeIdx=0;
+  wrap.style.display=(plat==='a'||opts.length>1)?'block':'none';
+  tog.innerHTML=opts.map((o,i)=>{
+    let cls='fee-btn';
+    if(i===selFeeIdx) cls+=' '+(plat==='e'?'sel-e':o.low?'sel-low':'sel-a');
+    return`<button class="${cls}" onclick="selFee(${i})">${o.label}</button>`;
+  }).join('');
+}
+function selFee(i){selFeeIdx=i;buildFeeToggle();recalc()}
+function onCatChange(){selFeeIdx=0;buildFeeToggle();recalc()}
+
+// ═══ EAN LOOKUP ═══
+function lookupEAN(){
+  const ean=document.getElementById('ean-in').value.trim();
+  const found=lager.find(r=>r.ean===ean);
+  document.getElementById('no-match').style.display=found||!ean?'none':'block';
+  if(found){
+    curItem=found;
+    document.getElementById('art-in').value=found.name;
+    document.getElementById('ek-in').value=found.ek.toFixed(2)+'€  (pro Stück)';
+    document.getElementById('bestand-in').value=found.bestand+' Stück';
+    // VK & Versand aus Lager vorbelegen
+    if(found.stdVK>0) document.getElementById('vk-in').value=found.stdVK.toFixed(2);
+    const vsIn=document.getElementById('vs-in');
+    if(!vsIn.dataset.touched) vsIn.value=found.stdVS>0?found.stdVS.toFixed(2):(plat==='e'?'3.29':'4.30');
+    // Kategorie
+    const sel=document.getElementById('cat-in');
+    for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===found.cat){sel.selectedIndex=i;break}}
+    selFeeIdx=0;buildFeeToggle();
+  } else {
+    curItem=null;
+    document.getElementById('art-in').value='';
+    document.getElementById('ek-in').value='';
+    document.getElementById('bestand-in').value='';
+  }
+  recalc();
+}
+document.getElementById('vs-in').addEventListener('input',function(){this.dataset.touched='1'});
+
+// ═══ KALKULATION ═══
+function calcFee(vk){
+  const opts=getFeeOpts();const o=opts[selFeeIdx]||opts[0];
+  if(plat==='e'){const fix=vk>10?o.fix:.35;const prov=vk<=o.lim?vk*o.p:o.lim*o.p+(vk-o.lim)*o.ov;return{fee:prov+fix,label:o.label};}
+  return{fee:Math.max(vk*o.p,o.min),label:o.label};
+}
+
+function recalc(){
+  const vk=parseFloat(document.getElementById('vk-in').value)||0;
+  const vs=parseFloat(document.getElementById('vs-in').value)||0;
+  const stk=Math.max(1,parseInt(document.getElementById('stk-in').value)||1);
+  const ek=curItem?curItem.ek:0,ekGes=ek*stk;
+  document.getElementById('r-stk').textContent=stk;
+  document.getElementById('ek-ges-hint').textContent=curItem?`EK gesamt: ${ekGes.toFixed(2)}€ (${stk} × ${ek.toFixed(2)}€)`:'';
+  const ok=vk>0&&curItem;
+  document.getElementById('btn-save').disabled=!ok;
+  const set=(id,v,cls)=>{const el=document.getElementById(id);el.textContent=v;el.className='ritem-v'+(cls?' '+cls:'')};
+  const mw=document.getElementById('marge-warn');
+  if(!ok){
+    ['r-vkn','r-mwst','r-geb','r-vs','r-ek','r-gew','r-rg','r-mg'].forEach(id=>set(id,'–'));
+    document.getElementById('r-geb-pct').textContent='';
+    document.getElementById('res-stk-info').textContent='';
+    mw.style.display='none';
+    return;
+  }
+  const {fee,label}=calcFee(vk);
+  const effPct=vk>0?fee/vk:0;
+  const mwst=vk/1.19*.19,gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+  document.getElementById('res-stk-info').textContent=stk>1?`${stk} Stück · EK ${ekGes.toFixed(2)}€`:'';
+  set('r-vkn',(vk/1.19).toFixed(2)+'€');
+  set('r-mwst',mwst.toFixed(2)+'€');
+  set('r-geb',fee.toFixed(2)+'€');
+  document.getElementById('r-geb-pct').textContent=`${(effPct*100).toFixed(2)}% · ${label}`;
+  set('r-vs',vs.toFixed(2)+'€');
+  set('r-ek',ekGes.toFixed(2)+'€','b');
+  set('r-gew',gewEK.toFixed(2)+'€',gewEK>=0?'g':'r');
+  set('r-rg',rg.toFixed(2)+'€',rg>=0?'g':'r');
+  set('r-mg',(mg*100).toFixed(1)+'%',mg>=0?'g':'r');
+  // Margewarnung
+  if(mg*100<MARGE_WARN_PCT&&vk>0){
+    mw.textContent=`⚠️ Marge unter ${MARGE_WARN_PCT}% — prüfe ob der VK kostendeckend ist`;
+    mw.style.display='block';
+  } else mw.style.display='none';
+}
+
+// ═══ VERKAUF SPEICHERN ═══
+function saveVerkauf(){
+  const vk=parseFloat(document.getElementById('vk-in').value)||0;
+  const vs=parseFloat(document.getElementById('vs-in').value)||0;
+  const stk=Math.max(1,parseInt(document.getElementById('stk-in').value)||1);
+  if(!curItem||!vk) return;
+  const ekGes=curItem.ek*stk,{fee,label}=calcFee(vk),effPct=vk>0?fee/vk:0;
+  const mwst=vk/1.19*.19,gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+
+  // Verlauf speichern
+  hist.unshift({
+    id:Date.now(),ts:new Date().toLocaleString('de-DE'),
+    plat,ean:curItem.ean,name:curItem.name,cat:document.getElementById('cat-in').value,
+    stk,vk,vs,ekGes:+ekGes.toFixed(2),mwst:+mwst.toFixed(2),
+    fee:+fee.toFixed(2),feePct:+effPct.toFixed(4),feeLabel:label,
+    gewEK:+gewEK.toFixed(2),rg:+rg.toFixed(2),mg:+mg.toFixed(4)
+  });
+  hsave();
+  renderTagesUmsatz();
+
+  // Bestand reduzieren + Statistik updaten
+  const idx=lager.findIndex(r=>r.ean===curItem.ean);
+  if(idx>=0){
+    lager[idx].bestand=Math.max(0,(lager[idx].bestand||0)-stk);
+    lager[idx].verkauftAnz=(lager[idx].verkauftAnz||0)+stk;
+    lager[idx].verkauftRG=(lager[idx].verkauftRG||0)+rg;
+    lager[idx].letzterVK=new Date().toLocaleDateString('de-DE');
+    lsave();
+  }
+
+  updateBadges();
+
+  // Reset — Cursor zurück ins EAN-Feld
+  document.getElementById('ean-in').value='';
+  document.getElementById('art-in').value='';
+  document.getElementById('ek-in').value='';
+  document.getElementById('bestand-in').value='';
+  document.getElementById('vk-in').value='';
+  document.getElementById('stk-in').value='1';
+  document.getElementById('vs-in').removeAttribute('data-touched');
+  document.getElementById('marge-warn').style.display='none';
+  curItem=null;selFeeIdx=0;buildFeeToggle();recalc();
+
+  // Feedback + Fokus
+  const btn=document.getElementById('btn-save');
+  btn.textContent='✓ Gespeichert!';
+  setTimeout(()=>{
+    btn.textContent='＋ Verkauf speichern';
+    document.getElementById('ean-in').focus();
+  },900);
+}
+
+// ═══ VERLAUF ═══
+function renderHist(){
+  const q=(document.getElementById('hist-q').value||'').toLowerCase();
+  const pf=document.getElementById('hist-plat').value;
+  let rows=[...hist];
+  if(q) rows=rows.filter(r=>r.name.toLowerCase().includes(q)||r.ean.includes(q));
+  if(pf) rows=rows.filter(r=>r.plat===pf);
+  const totVK=rows.reduce((a,r)=>a+r.vk,0),totFee=rows.reduce((a,r)=>a+r.fee,0),totRG=rows.reduce((a,r)=>a+r.rg,0);
+  document.getElementById('hist-sum').innerHTML=`
+    <div class="sc"><div class="sc-l">Verkäufe</div><div class="sc-v">${rows.length}</div></div>
+    <div class="sc"><div class="sc-l">Umsatz (brutto)</div><div class="sc-v">${totVK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Gebühren</div><div class="sc-v r">${totFee.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Reingewinn</div><div class="sc-v ${totRG>=0?'g':'r'}">${totRG.toFixed(2)}€</div></div>`;
+  const tb=document.getElementById('hist-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Noch keine Verkäufe erfasst</td></tr>`;return}
+  tb.innerHTML=rows.map(r=>`<tr>
+    <td style="color:var(--text3);font-size:11px">${r.ts}</td>
+    <td><span class="plt-badge ${r.plat==='e'?'plt-e':'plt-a'}">${r.plat==='e'?'eBay':'Amazon'}</span></td>
+    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
+    <td class="r">${r.stk}</td>
+    <td class="r">${r.vk.toFixed(2)}€</td>
+    <td class="r">${r.vs.toFixed(2)}€</td>
+    <td class="r" style="color:var(--text2)">${r.fee.toFixed(2)}€</td>
+    <td class="r" style="color:var(--text3);font-size:11px">${r.feePct?(r.feePct*100).toFixed(2)+'%':'–'}</td>
+    <td class="r" style="color:var(--blue)">${r.ekGes.toFixed(2)}€</td>
+    <td class="r ${r.rg>=0?'rg-pos':'rg-neg'}">${r.rg.toFixed(2)}€</td>
+    <td class="r ${r.rg>=0?'rg-pos':'rg-neg'}" style="font-size:11px">${(r.mg*100).toFixed(1)}%</td>
+    <td><button class="del-btn" onclick="delHist(${r.id})" title="Löschen">✕</button></td>
+  </tr>`).join('');
+}
+function delHist(id){if(!confirm('Eintrag löschen?'))return;hist=hist.filter(r=>r.id!==id);hsave();updateBadges();renderHist()}
+function clearHist(){if(!confirm('Gesamten Verlauf löschen?'))return;hist=[];hsave();updateBadges();renderHist()}
+function exportCSV(){
+  if(!hist.length){alert('Keine Daten');return}
+  const hdr='Datum;Plattform;EAN;Artikel;Kategorie;Stück;VK brutto;Versand;Gebühr €;Gebühr %;EK gesamt;Gewinn+EK;Reingewinn;Marge %\n';
+  const body=hist.map(r=>[r.ts,r.plat==='e'?'eBay':'Amazon',r.ean,'"'+r.name+'"',r.cat||'',r.stk,r.vk.toFixed(2),r.vs.toFixed(2),r.fee.toFixed(2),r.feePct?(r.feePct*100).toFixed(2):'',r.ekGes.toFixed(2),r.gewEK.toFixed(2),r.rg.toFixed(2),(r.mg*100).toFixed(2)].join(';')).join('\n');
+  dl('\uFEFF'+hdr+body,'Verkaufshistorie_'+today()+'.csv','text/csv;charset=utf-8');
+}
+
+// ═══ LAGERBESTAND ═══
+function renderLager(){
+  const q=(document.getElementById('lager-q').value||'').toLowerCase();
+  const flt=document.getElementById('lager-filter').value;
+  let rows=lager.filter(r=>{
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ean.toLowerCase().includes(q)) return false;
+    if(flt==='low'&&stockStatus(r)!=='low') return false;
+    if(flt==='out'&&stockStatus(r)!=='out') return false;
+    return true;
+  });
+  const tb=document.getElementById('lager-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="11" class="empty">Keine Artikel gefunden</td></tr>`;return}
+  tb.innerHTML=rows.map(r=>{
+    const st=stockStatus(r);
+    const stBadge=st==='ok'?`<span class="stock-badge stock-ok">${r.bestand}</span>`
+      :st==='low'?`<span class="stock-badge stock-low-b">${r.bestand} ⚠️</span>`
+      :`<span class="stock-badge stock-out-b">0 🔴</span>`;
+    const avgRG=r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2)+'€':'–';
+    const rowCls=st==='out'?'stock-out':st==='low'?'stock-low':'';
+    return`<tr class="${rowCls}">
+      <td style="color:var(--text3);font-size:11px">${r.ean}</td>
+      <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.cat}</td>
+      <td class="r" style="color:var(--blue);font-weight:600">${r.ek.toFixed(2)}€</td>
+      <td class="r">${r.stdVK>0?r.stdVK.toFixed(2)+'€':'–'}</td>
+      <td class="r">${r.stdVS>0?r.stdVS.toFixed(2)+'€':'–'}</td>
+      <td class="r">${stBadge} <span style="font-size:10px;color:var(--text3)">/ min ${r.minBestand}</span></td>
+      <td class="r" style="color:var(--text2)">${r.verkauftAnz||0}</td>
+      <td class="r" style="color:var(--green)">${avgRG}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis">${r.notiz||''}</td>
+      <td style="white-space:nowrap">
+        <button class="edit-btn" onclick="openEditForm('${r.ean}')" title="Bearbeiten">✏️</button>
+        <button class="del-btn" onclick="delArtikel('${r.ean}')" title="Löschen">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddForm(){
+  editEAN=null;
+  document.getElementById('form-title').textContent='Neuer Artikel';
+  document.getElementById('nw-ean').value='';
+  document.getElementById('nw-ean').readOnly=false;
+  document.getElementById('nw-name').value='';
+  document.getElementById('nw-ek').value='';
+  document.getElementById('nw-cat').value='Drogerie';
+  document.getElementById('nw-bestand').value='0';
+  document.getElementById('nw-minbestand').value='3';
+  document.getElementById('nw-vk').value='';
+  document.getElementById('nw-vs').value='3.29';
+  document.getElementById('nw-notiz').value='';
+  document.getElementById('add-form').classList.add('open');
+  document.getElementById('nw-ean').focus();
+}
+
+function openEditForm(ean){
+  const r=lager.find(x=>x.ean===ean);if(!r)return;
+  editEAN=ean;
+  document.getElementById('form-title').textContent='Artikel bearbeiten';
+  document.getElementById('nw-ean').value=r.ean;
+  document.getElementById('nw-ean').readOnly=true;
+  document.getElementById('nw-name').value=r.name;
+  document.getElementById('nw-ek').value=r.ek;
+  document.getElementById('nw-cat').value=r.cat;
+  document.getElementById('nw-bestand').value=r.bestand||0;
+  document.getElementById('nw-minbestand').value=r.minBestand||3;
+  document.getElementById('nw-vk').value=r.stdVK||'';
+  document.getElementById('nw-vs').value=r.stdVS||3.29;
+  document.getElementById('nw-notiz').value=r.notiz||'';
+  document.getElementById('add-form').classList.add('open');
+  document.getElementById('nw-name').focus();
+}
+
+function closeAddForm(){
+  document.getElementById('add-form').classList.remove('open');
+  editEAN=null;
+}
+
+function saveArtikel(){
+  const ean=document.getElementById('nw-ean').value.trim();
+  const name=document.getElementById('nw-name').value.trim();
+  const ek=parseFloat(document.getElementById('nw-ek').value)||0;
+  const cat=document.getElementById('nw-cat').value;
+  const bestand=parseInt(document.getElementById('nw-bestand').value)||0;
+  const minBestand=parseInt(document.getElementById('nw-minbestand').value)||3;
+  const stdVK=parseFloat(document.getElementById('nw-vk').value)||0;
+  const stdVS=parseFloat(document.getElementById('nw-vs').value)||3.29;
+  const notiz=document.getElementById('nw-notiz').value.trim();
+  if(!ean||!name||!ek){alert('Bitte EAN, Name und EK ausfüllen');return}
+  if(editEAN){
+    const idx=lager.findIndex(r=>r.ean===editEAN);
+    if(idx>=0) lager[idx]={...lager[idx],name,ek,cat,bestand,minBestand,stdVK,stdVS,notiz};
+  } else {
+    if(lager.find(r=>r.ean===ean)){alert('EAN bereits vorhanden');return}
+    lager.push({ean,name,ek,cat,bestand,minBestand,stdVK,stdVS,notiz,verkauftAnz:0,verkauftRG:0,letzterVK:null});
+  }
+  lsave();updateBadges();renderLager();closeAddForm();
+}
+
+function delArtikel(ean){
+  if(!confirm('Artikel löschen?'))return;
+  lager=lager.filter(r=>r.ean!==ean);
+  lsave();updateBadges();renderLager();
+}
+
+function exportLager(){
+  const hdr='EAN;Artikel;Kategorie;EK netto;Bestand;Mindestbestand;Std-VK;Std-Versand;Verkauft Anz;Ø Gewinn;Notiz\n';
+  const body=lager.map(r=>[r.ean,'"'+r.name+'"',r.cat,r.ek.toFixed(2),r.bestand||0,r.minBestand||3,r.stdVK||0,r.stdVS||3.29,r.verkauftAnz||0,r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2):'','"'+(r.notiz||'')+'"'].join(';')).join('\n');
+  dl('\uFEFF'+hdr+body,'Lagerbestand_'+today()+'.csv','text/csv;charset=utf-8');
+}
+
+// ═══ MONATSARCHIV ═══
+function getMonatKey(ts){try{const p=ts.split(',')[0].split('.');return`${p[2].trim()}-${p[1].padStart(2,'0')}`}catch(e){return'unbekannt'}}
+function getMonatLabel(key){const m=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];const[y,mo]=key.split('-');return`${m[parseInt(mo)-1]} ${y}`}
+function populateMonatSelect(){
+  const keys=[...new Set(hist.map(r=>getMonatKey(r.ts)))].sort().reverse();
+  const sel=document.getElementById('monat-sel');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Monat wählen…</option>'+keys.map(k=>`<option value="${k}"${k===cur?' selected':''}>${getMonatLabel(k)}</option>`).join('');
+}
+function renderMonat(){
+  const key=document.getElementById('monat-sel').value;
+  const pf=document.getElementById('monat-plat').value;
+  document.getElementById('monat-empty').style.display=key?'none':'block';
+  document.getElementById('monat-report').style.display=key?'block':'none';
+  if(!key) return;
+  let rows=hist.filter(r=>getMonatKey(r.ts)===key);
+  if(pf) rows=rows.filter(r=>r.plat===pf);
+  document.getElementById('monat-titel').textContent=getMonatLabel(key)+(pf===''?' · eBay & Amazon':pf==='e'?' · eBay':' · Amazon');
+  const totVK=rows.reduce((a,r)=>a+r.vk,0),totFee=rows.reduce((a,r)=>a+r.fee,0),totRG=rows.reduce((a,r)=>a+r.rg,0),totEK=rows.reduce((a,r)=>a+r.ekGes,0);
+  document.getElementById('monat-sum').innerHTML=`
+    <div class="sc"><div class="sc-l">Verkäufe</div><div class="sc-v">${rows.length}</div></div>
+    <div class="sc"><div class="sc-l">Umsatz brutto</div><div class="sc-v">${totVK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Gebühren</div><div class="sc-v r">${totFee.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">EK gesamt</div><div class="sc-v b">${totEK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Reingewinn</div><div class="sc-v ${totRG>=0?'g':'r'}">${totRG.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Ø Marge</div><div class="sc-v ${totRG>=0?'g':'r'}">${totVK>0?((totRG/totVK)*100).toFixed(1)+'%':'–'}</div></div>`;
+  const splitEl=document.getElementById('monat-split');
+  if(!pf){
+    const sc=(lbl,r,cls)=>{const vk=r.reduce((a,x)=>a+x.vk,0),rg=r.reduce((a,x)=>a+x.rg,0),fee=r.reduce((a,x)=>a+x.fee,0);return`<div class="sc" style="border-left:3px solid ${cls==='e'?'var(--ebay-border)':'var(--amzn-border)'}"><div class="sc-l" style="font-weight:700;font-size:12px;margin-bottom:6px">${lbl}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px"><div><div class="sc-l">Verkäufe</div><div style="font-weight:600">${r.length}</div></div><div><div class="sc-l">Umsatz</div><div style="font-weight:600">${vk.toFixed(2)}€</div></div><div><div class="sc-l">Gebühren</div><div style="font-weight:600;color:var(--red)">${fee.toFixed(2)}€</div></div><div><div class="sc-l">Reingewinn</div><div style="font-weight:700;color:${rg>=0?'var(--green)':'var(--red)'}">${rg.toFixed(2)}€</div></div><div><div class="sc-l">Marge</div><div style="font-weight:600;color:${rg>=0?'var(--green)':'var(--red)'}">${vk>0?((rg/vk)*100).toFixed(1)+'%':'–'}</div></div></div></div>`};
+    splitEl.style.display='grid';
+    splitEl.innerHTML=sc('📦 eBay',rows.filter(r=>r.plat==='e'),'e')+sc('🛒 Amazon',rows.filter(r=>r.plat==='a'),'a');
+  } else {splitEl.style.display='none';splitEl.innerHTML='';}
+  const tb=document.getElementById('monat-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="10" class="empty">Keine Verkäufe</td></tr>`;document.getElementById('monat-foot').innerHTML='';return}
+  tb.innerHTML=rows.map(r=>`<tr><td style="color:var(--text3);font-size:11px">${r.ts.split(',')[0]}</td><td><span class="plt-badge ${r.plat==='e'?'plt-e':'plt-a'}">${r.plat==='e'?'eBay':'Amazon'}</span></td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td><td class="r">${r.stk}</td><td class="r">${r.vk.toFixed(2)}€</td><td class="r">${r.vs.toFixed(2)}€</td><td class="r" style="color:var(--text2)">${r.fee.toFixed(2)}€</td><td class="r" style="color:var(--blue)">${r.ekGes.toFixed(2)}€</td><td class="r ${r.rg>=0?'rg-pos':'rg-neg'}">${r.rg.toFixed(2)}€</td><td class="r ${r.rg>=0?'rg-pos':'rg-neg'}" style="font-size:11px">${(r.mg*100).toFixed(1)}%</td></tr>`).join('');
+  const fVK=rows.reduce((a,r)=>a+r.vk,0),fFee=rows.reduce((a,r)=>a+r.fee,0),fEK=rows.reduce((a,r)=>a+r.ekGes,0),fRG=rows.reduce((a,r)=>a+r.rg,0);
+  document.getElementById('monat-foot').innerHTML=`<tr style="font-weight:700;background:var(--bg3)"><td colspan="3">Summe (${rows.length} Verkäufe)</td><td></td><td class="r">${fVK.toFixed(2)}€</td><td></td><td class="r" style="color:var(--red)">${fFee.toFixed(2)}€</td><td class="r" style="color:var(--blue)">${fEK.toFixed(2)}€</td><td class="r ${fRG>=0?'rg-pos':'rg-neg'}">${fRG.toFixed(2)}€</td><td class="r ${fRG>=0?'rg-pos':'rg-neg'}">${fVK>0?((fRG/fVK)*100).toFixed(1)+'%':'–'}</td></tr>`;
+}
+function exportMonatCSV(){
+  const key=document.getElementById('monat-sel').value;
+  const pf=document.getElementById('monat-plat').value;
+  if(!key){alert('Bitte Monat auswählen');return}
+  let rows=hist.filter(r=>getMonatKey(r.ts)===key);
+  if(pf) rows=rows.filter(r=>r.plat===pf);
+  if(!rows.length){alert('Keine Daten');return}
+  const lbl=getMonatLabel(key).replace(' ','_');
+  const hdr='Datum;Plattform;EAN;Artikel;Kategorie;Stück;VK brutto;Versand;Gebühr €;Gebühr %;EK gesamt;Gewinn+EK;Reingewinn;Marge %\n';
+  const body=rows.map(r=>[r.ts,r.plat==='e'?'eBay':'Amazon',r.ean,'"'+r.name+'"',r.cat||'',r.stk,r.vk.toFixed(2),r.vs.toFixed(2),r.fee.toFixed(2),r.feePct?(r.feePct*100).toFixed(2):'',r.ekGes.toFixed(2),r.gewEK.toFixed(2),r.rg.toFixed(2),(r.mg*100).toFixed(2)].join(';')).join('\n');
+  dl('\uFEFF'+hdr+body,`Monatsbericht_${lbl}${pf?'_'+(pf==='e'?'eBay':'Amazon'):''}.csv`,'text/csv;charset=utf-8');
+}
+function drucken(){
+  if(!document.getElementById('monat-sel').value){alert('Bitte Monat auswählen');return}
+  document.querySelectorAll('.pnl').forEach(p=>p.style.setProperty('display','none','important'));
+  document.getElementById('pnl-monat').style.setProperty('display','block','important');
+  window.print();
+  setTimeout(()=>{document.querySelectorAll('.pnl').forEach(p=>p.style.removeProperty('display'));document.getElementById('pnl-monat').classList.add('act')},500);
+}
+
+// ═══ SYNC / JSON ═══
+function openSync(){document.getElementById('sync-modal').classList.add('open')}
+function closeSync(){document.getElementById('sync-modal').classList.remove('open')}
+function exportJSON(){
+  const data={version:'2.0',exportiert:new Date().toLocaleString('de-DE'),lager,hist};
+  dl(JSON.stringify(data,null,2),'GewinnKalkulator_Backup_'+today()+'.json','application/json');
+}
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.lager||!data.hist) throw new Error('Ungültiges Format');
+      if(!confirm(`Daten importieren?\n\n${data.lager.length} Artikel, ${data.hist.length} Verkäufe\nExportiert: ${data.exportiert}\n\nAktuelle Daten werden überschrieben!`)) return;
+      lager=migrateLager(data.lager);
+      hist=data.hist;
+      lsave();hsave();
+      updateBadges();renderLager();renderHist();
+      const msg=document.getElementById('sync-msg');
+      msg.textContent=`✓ Import erfolgreich: ${lager.length} Artikel, ${hist.length} Verkäufe`;
+      msg.style.display='block';
+    }catch(err){alert('Fehler beim Import: '+err.message)}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ═══ UTILS ═══
+function today(){return new Date().toISOString().slice(0,10)}
+function dl(content,filename,type){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══ SORTIERUNG LAGER ═══
+let lagerSort={col:'name',dir:1};
+
+function sortLager(col){
+  if(lagerSort.col===col) lagerSort.dir*=-1;
+  else {lagerSort.col=col;lagerSort.dir=1;}
+  document.querySelectorAll('.lager-sort-btn').forEach(b=>{
+    b.textContent=b.dataset.col===col?(lagerSort.dir===1?' ↑':' ↓'):'';
+  });
+  renderLager();
+}
+
+const origRenderLager=renderLager;
+renderLager=function(){
+  const q=(document.getElementById('lager-q').value||'').toLowerCase();
+  const flt=document.getElementById('lager-filter').value;
+  let rows=lager.filter(r=>{
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ean.toLowerCase().includes(q)) return false;
+    if(flt==='low'&&stockStatus(r)!=='low') return false;
+    if(flt==='out'&&stockStatus(r)!=='out') return false;
+    return true;
+  });
+  // Sortierung
+  rows.sort((a,b)=>{
+    let va,vb;
+    const col=lagerSort.col;
+    if(col==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();return va.localeCompare(vb)*lagerSort.dir;}
+    if(col==='ek'){va=a.ek;vb=b.ek;}
+    else if(col==='bestand'){va=a.bestand||0;vb=b.bestand||0;}
+    else if(col==='verkauft'){va=a.verkauftAnz||0;vb=b.verkauftAnz||0;}
+    else if(col==='gewinn'){va=a.verkauftAnz>0?a.verkauftRG/a.verkauftAnz:-999;vb=b.verkauftAnz>0?b.verkauftRG/b.verkauftAnz:-999;}
+    else if(col==='letzter'){va=a.letzterVK||'';vb=b.letzterVK||'';return va.localeCompare(vb)*lagerSort.dir;}
+    else{va=0;vb=0;}
+    return(va-vb)*lagerSort.dir;
+  });
+
+  const tb=document.getElementById('lager-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Keine Artikel gefunden</td></tr>`;return}
+  tb.innerHTML=rows.map(r=>{
+    const st=stockStatus(r);
+    const stBadge=st==='ok'?`<span class="stock-badge stock-ok">${r.bestand}</span>`
+      :st==='low'?`<span class="stock-badge stock-low-b">${r.bestand} ⚠️</span>`
+      :`<span class="stock-badge stock-out-b">0 🔴</span>`;
+    const avgRG=r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2)+'€':'–';
+    const rowCls=st==='out'?'stock-out':st==='low'?'stock-low':'';
+    return`<tr class="${rowCls}">
+      <td style="color:var(--text3);font-size:11px">${r.ean}</td>
+      <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.cat}</td>
+      <td class="r" style="color:var(--blue);font-weight:600">${r.ek.toFixed(2)}€</td>
+      <td class="r">${r.stdVK>0?r.stdVK.toFixed(2)+'€':'–'}</td>
+      <td class="r">${r.stdVS>0?r.stdVS.toFixed(2)+'€':'–'}</td>
+      <td class="r">${stBadge} <span style="font-size:10px;color:var(--text3)">/ min ${r.minBestand}</span></td>
+      <td class="r" style="color:var(--text2)">${r.verkauftAnz||0}</td>
+      <td class="r" style="color:var(--green)">${avgRG}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.letzterVK||'–'}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis">${r.notiz||''}</td>
+      <td style="white-space:nowrap">
+        <button class="edit-btn" onclick="openEditForm('${r.ean}')" title="Bearbeiten">✏️</button>
+        <button class="del-btn" onclick="delArtikel('${r.ean}')" title="Löschen">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+// ═══ TAGESUMSATZ ═══
+function renderTagesUmsatz(){
+  const heute=new Date().toLocaleDateString('de-DE');
+  const tRows=hist.filter(r=>r.ts.startsWith(heute)||r.ts.split(',')[0]===heute);
+  const tVK=tRows.reduce((a,r)=>a+r.vk,0);
+  const tRG=tRows.reduce((a,r)=>a+r.rg,0);
+  const tFee=tRows.reduce((a,r)=>a+r.fee,0);
+  const tAnz=tRows.length;
+  const el=document.getElementById('tages-bar');
+  if(!el) return;
+  if(tAnz===0){el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=`
+    <span style="font-weight:700;font-size:12px">📅 Heute:</span>
+    <span>${tAnz} Verkauf${tAnz!==1?'e':''}</span>
+    <span style="color:var(--text2)">Umsatz: <b>${tVK.toFixed(2)}€</b></span>
+    <span style="color:var(--red)">Gebühren: <b>${tFee.toFixed(2)}€</b></span>
+    <span style="color:${tRG>=0?'var(--green)':'var(--red)'}">Gewinn: <b>${tRG.toFixed(2)}€</b></span>`;
+}
+
+// ═══ INIT ═══
+selPlat('e');
+buildFeeToggle();
+updateBadges();
+renderLager();
+renderHist();
+renderTagesUmsatz();
+// Autofokus EAN beim Start
+setTimeout(()=>document.getElementById('ean-in').focus(),300);
+</script>
+</body>
+</html>
