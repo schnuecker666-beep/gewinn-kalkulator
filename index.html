@@ -152,12 +152,17 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
 </head>
 <body>
 <header>
-  <h1>💰 Gewinn-Kalkulator <span class="ver">v2.0 · eBay &amp; Amazon</span></h1>
+  <h1>💰 Gewinn-Kalkulator <span class="ver">v4.0 · eBay &amp; Amazon</span></h1>
   <div style="display:flex;gap:8px">
     <button class="btn btn-sync" onclick="openSync()" style="font-size:11px;padding:6px 12px">⇅ Sync</button>
   </div>
 </header>
-<div id="tages-bar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;gap:16px;align-items:center;font-size:12px;flex-wrap:wrap;color:var(--text)"></div>
+<div id="backup-banner" style="display:none;background:#fef9c3;border-bottom:1px solid #ca8a04;padding:8px 20px;gap:12px;align-items:center;font-size:12px;flex-wrap:wrap;color:#713f12">
+  <span>⚠️ <b>Backup-Erinnerung:</b> Letzter Export liegt mehr als 1 Tag zurück!</span>
+  <button onclick="exportJSON();hideBanner()" style="padding:4px 12px;border:1px solid #ca8a04;border-radius:6px;background:#fff;color:#713f12;cursor:pointer;font-size:11px;font-weight:600">Jetzt exportieren</button>
+  <button onclick="hideBanner()" style="padding:4px 10px;border:none;background:transparent;color:#713f12;cursor:pointer;font-size:11px">Später</button>
+</div>
+<div id="tages-bar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;gap:16px;align-items:center;font-size:12px;flex-wrap:wrap;color:var(--text)"><button onclick="druckenTagesabschluss()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);cursor:pointer;font-size:11px;white-space:nowrap">🖨 Tagesabschluss</button></div>
 
 <div class="container">
 <div class="nav">
@@ -165,6 +170,8 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
   <button class="ntab" onclick="showTab('hist',this)">📋 Verlauf <span class="badge" id="hist-cnt">0</span></button>
   <button class="ntab" onclick="showTab('lager',this)">📦 Lagerbestand <span class="badge" id="lager-cnt">0</span><span class="badge warn" id="warn-cnt" style="display:none"></span></button>
   <button class="ntab" onclick="showTab('monat',this)">📅 Monatsarchiv</button>
+  <button class="ntab" onclick="showTab('stats',this)">📈 Auswertungen</button>
+  <button class="ntab" onclick="showTab('settings',this)">⚙️ Einstellungen</button>
 </div>
 
 <!-- ═══ VERKAUF ═══ -->
@@ -185,7 +192,10 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
           <input id="ean-in" placeholder="EAN hier eingeben…" oninput="lookupEAN()" autocomplete="off" style="flex:1">
           <button onclick="startScanner()" id="scan-btn" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);cursor:pointer;font-size:16px;white-space:nowrap;color:var(--text)" title="Kamera scannen">📷</button>
         </div>
-        <div class="no-match" id="no-match" style="display:none">⚠️ Artikel nicht im Lager gefunden</div>
+        <div id="no-match" style="display:none;margin-top:6px">
+          <div style="font-size:12px;color:var(--red);margin-bottom:6px">⚠️ Artikel nicht im Lager gefunden</div>
+          <button onclick="quickAddFromEAN()" style="font-size:11px;padding:5px 12px;border:1px solid var(--blue);border-radius:6px;background:var(--bg2);color:var(--blue);cursor:pointer">＋ Artikel jetzt anlegen</button>
+        </div>
       </div>
       <!-- Scanner Modal -->
       <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;flex-direction:column;align-items:center;justify-content:center">
@@ -263,6 +273,7 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
     </div>
   </div>
 
+  <div class="field" style="margin-bottom:10px"><label>Notiz zum Verkauf (optional)</label><input id="vk-notiz" placeholder="z.B. Sonderpreis, Retoure…"></div>
   <button class="btn-save" id="btn-save" onclick="saveVerkauf()" disabled>＋ Verkauf speichern</button>
   <div class="save-hint">Bestand wird automatisch reduziert · CSV-Export im Verlauf-Tab</div>
 </div>
@@ -286,7 +297,7 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
         <th>Datum</th><th>Plattform</th><th>Artikel</th>
         <th class="r">Stk</th><th class="r">VK</th><th class="r">Versand</th>
         <th class="r">Gebühr €</th><th class="r">Gebühr %</th><th class="r">EK ges.</th>
-        <th class="r">Reingewinn</th><th class="r">Marge</th><th></th>
+        <th class="r">Reingewinn</th><th class="r">Marge</th><th>Notiz</th><th></th>
       </tr></thead>
       <tbody id="hist-body"></tbody>
     </table>
@@ -295,6 +306,7 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
 
 <!-- ═══ LAGERBESTAND ═══ -->
 <div class="pnl" id="pnl-lager">
+  <div class="sum-row" id="lager-sum" style="margin-bottom:14px"></div>
   <div class="toolbar">
     <input id="lager-q" placeholder="🔍 Artikel oder EAN suchen…" oninput="renderLager()">
     <select id="lager-filter" onchange="renderLager()">
@@ -339,15 +351,16 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
     <table>
       <thead><tr>
         <th>EAN</th>
+        <th>⭐</th>
         <th style="cursor:pointer" onclick="sortLager('name')">Artikel <span class="lager-sort-btn" data-col="name"></span></th>
         <th>Kat.</th>
         <th class="r" style="cursor:pointer" onclick="sortLager('ek')">EK <span class="lager-sort-btn" data-col="ek"></span></th>
-        <th class="r">Std-VK</th><th class="r">Versand</th>
+        <th class="r">Std-VK</th><th class="r">MwSt</th>
         <th class="r" style="cursor:pointer" onclick="sortLager('bestand')">Bestand <span class="lager-sort-btn" data-col="bestand"></span></th>
         <th class="r" style="cursor:pointer" onclick="sortLager('verkauft')">Verkauft <span class="lager-sort-btn" data-col="verkauft"></span></th>
         <th class="r" style="cursor:pointer" onclick="sortLager('gewinn')">Ø Gew. <span class="lager-sort-btn" data-col="gewinn"></span></th>
         <th style="cursor:pointer" onclick="sortLager('letzter')">Letzter VK <span class="lager-sort-btn" data-col="letzter"></span></th>
-        <th>Notiz</th><th></th>
+        <th>Lieferant</th><th>Notiz</th><th></th>
       </tr></thead>
       <tbody id="lager-body"></tbody>
     </table>
@@ -388,6 +401,91 @@ tr.stock-out td{background:color-mix(in srgb,var(--ebay-bg) 50%,transparent)!imp
     </div>
   </div>
 </div>
+
+<!-- ═══ AUSWERTUNGEN ═══ -->
+<div class="pnl" id="pnl-stats">
+  <div class="toolbar" style="margin-bottom:10px">
+    <select id="stats-range" onchange="renderStats()">
+      <option value="30">Letzte 30 Tage</option>
+      <option value="7">Letzte 7 Tage</option>
+      <option value="90">Letzte 90 Tage</option>
+      <option value="all">Alle Zeit</option>
+    </select>
+    <select id="stats-plat" onchange="renderStats()">
+      <option value="">eBay + Amazon</option>
+      <option value="e">Nur eBay</option>
+      <option value="a">Nur Amazon</option>
+    </select>
+  </div>
+  <div class="sum-row" id="stats-kpi" style="margin-bottom:16px;grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">🏆 Top 10 meistverkaufte Artikel</div>
+      <div id="stats-top-vol"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 Top 10 profitabelste Artikel</div>
+      <div id="stats-top-profit"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">📦 eBay vs Amazon Vergleich</div>
+      <div id="stats-plat-compare"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🛒 Einkaufsliste (unter Mindestbestand)</div>
+      <div id="stats-einkauf"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" onclick="druckenEinkauf()" style="flex:1;font-size:11px">🖨 Drucken</button>
+        <button class="btn btn-export" onclick="exportEinkaufCSV()" style="flex:1;font-size:11px">⬇ CSV</button>
+      </div>
+    </div>
+  </div>
+  <!-- Zuletzt verkauft -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">🕐 Zuletzt verkaufte Artikel (Schnellzugriff)</div>
+    <div id="stats-recent" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- ═══ EINSTELLUNGEN ═══ -->
+<div class="pnl" id="pnl-settings">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-title">📦 Standard Versandkosten</div>
+      <div class="field"><label>eBay Standard-Versand (€)</label><input id="set-vs-ebay" type="number" step="0.01" value="3.29" oninput="saveSettings()"></div>
+      <div class="field"><label>Amazon Standard-Versand (€)</label><input id="set-vs-amzn" type="number" step="0.01" value="4.30" oninput="saveSettings()"></div>
+      <div class="field"><label>Mindestmarge Warnung (%)</label><input id="set-marge" type="number" step="1" value="15" oninput="saveSettings()"><div class="hint">Warnung wenn Marge unter diesem Wert</div></div>
+      <div class="field"><label>Backup-Erinnerung (Tage)</label><input id="set-backup-days" type="number" step="1" min="1" value="1" oninput="saveSettings()"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 eBay Gebühren anpassen</div>
+      <div class="field"><label>Drogerie %</label><input id="set-e-drogerie" type="number" step="0.1" value="12" oninput="saveSettings()"></div>
+      <div class="field"><label>Elektronik %</label><input id="set-e-elektronik" type="number" step="0.1" value="6.5" oninput="saveSettings()"></div>
+      <div class="field"><label>Fixgebühr (€)</label><input id="set-e-fix" type="number" step="0.01" value="0.45" oninput="saveSettings()"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🛒 Amazon Gebühren anpassen</div>
+      <div class="field"><label>Drogerie Standard %</label><input id="set-a-drogerie" type="number" step="0.1" value="15" oninput="saveSettings()"></div>
+      <div class="field"><label>Drogerie Niedrigpreis %</label><input id="set-a-drogerie-low" type="number" step="0.1" value="8" oninput="saveSettings()"></div>
+      <div class="field"><label>Elektronik %</label><input id="set-a-elektronik" type="number" step="0.1" value="7" oninput="saveSettings()"></div>
+      <div class="field"><label>Mindestgebühr (€)</label><input id="set-a-min" type="number" step="0.01" value="0.30" oninput="saveSettings()"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🗂 Eigene Kategorien</div>
+      <div id="custom-cats-list" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <input id="new-cat-name" placeholder="Neue Kategorie…" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px">
+        <button class="btn btn-primary" onclick="addCustomCat()" style="white-space:nowrap">＋ Hinzufügen</button>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);font-size:11px;color:var(--text2)">
+    ℹ️ Einstellungen werden automatisch gespeichert und bleiben im Browser erhalten.
+  </div>
+</div>
+
 </div>
 
 <!-- ═══ SYNC MODAL ═══ -->
@@ -443,7 +541,7 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 
 // Lager: alte Einträge ohne neue Felder migrieren
 function migrateLager(arr){
-  return arr.map(r=>({
+  return arr.map(r=>({favorit:false,lieferant:'',mwst:19,minMarge:0,
     bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:'',
     verkauftAnz:0,verkauftRG:0,letzterVK:null,...r
   }));
@@ -479,7 +577,9 @@ function showTab(t,btn){
   btn.classList.add('act');
   document.getElementById('pnl-'+t).classList.add('act');
   if(t==='monat'){populateMonatSelect();renderMonat();}
-  if(t==='vk') renderTagesUmsatz();
+  if(t==='vk'){renderTagesUmsatz();setTimeout(()=>document.getElementById('ean-in').focus(),100);}
+  if(t==='stats') renderStats();
+  if(t==='settings') loadSettings();
 }
 
 // ═══ PLATTFORM ═══
@@ -526,7 +626,7 @@ function lookupEAN(){
     curItem=found;
     document.getElementById('art-in').value=found.name;
     document.getElementById('ek-in').value=found.ek.toFixed(2)+'€  (pro Stück)';
-    document.getElementById('bestand-in').value=found.bestand+' Stück';
+    document.getElementById('bestand-in').value=found.bestand+' Stück'+(found.favorit?' ⭐':'')+(found.mwst&&found.mwst!==19?' · MwSt '+found.mwst+'%':'')+(found.lieferant?' · '+found.lieferant:'');
     // VK & Versand aus Lager vorbelegen
     if(found.stdVK>0) document.getElementById('vk-in').value=found.stdVK.toFixed(2);
     const vsIn=document.getElementById('vs-in');
@@ -572,9 +672,14 @@ function recalc(){
   }
   const {fee,label}=calcFee(vk);
   const effPct=vk>0?fee/vk:0;
-  const mwst=vk/1.19*.19,gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+  const artMwst=(curItem&&curItem.mwst)||19;
+  const mwstRate=artMwst/100;
+  const mwst=vk/(1+mwstRate)*mwstRate;
+  const gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+  // Per-article min marge warning
+  const artMinMarge=curItem&&curItem.minMarge>0?curItem.minMarge:settings.minMarge;
   document.getElementById('res-stk-info').textContent=stk>1?`${stk} Stück · EK ${ekGes.toFixed(2)}€`:'';
-  set('r-vkn',(vk/1.19).toFixed(2)+'€');
+  set('r-vkn',(vk/(1+mwstRate)).toFixed(2)+'€');
   set('r-mwst',mwst.toFixed(2)+'€');
   set('r-geb',fee.toFixed(2)+'€');
   document.getElementById('r-geb-pct').textContent=`${(effPct*100).toFixed(2)}% · ${label}`;
@@ -584,8 +689,8 @@ function recalc(){
   set('r-rg',rg.toFixed(2)+'€',rg>=0?'g':'r');
   set('r-mg',(mg*100).toFixed(1)+'%',mg>=0?'g':'r');
   // Margewarnung
-  if(mg*100<MARGE_WARN_PCT&&vk>0){
-    mw.textContent=`⚠️ Marge unter ${MARGE_WARN_PCT}% — prüfe ob der VK kostendeckend ist`;
+  if(mg*100<artMinMarge&&vk>0){
+    mw.textContent=`⚠️ Marge unter ${artMinMarge}% — prüfe ob der VK kostendeckend ist`;
     mw.style.display='block';
   } else mw.style.display='none';
 }
@@ -597,7 +702,10 @@ function saveVerkauf(){
   const stk=Math.max(1,parseInt(document.getElementById('stk-in').value)||1);
   if(!curItem||!vk) return;
   const ekGes=curItem.ek*stk,{fee,label}=calcFee(vk),effPct=vk>0?fee/vk:0;
-  const mwst=vk/1.19*.19,gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+  const artMwstSave=(curItem&&curItem.mwst)||19;
+  const mwst=vk/(1+artMwstSave/100)*(artMwstSave/100);
+  const gewEK=vk-vs-mwst-fee,rg=gewEK-ekGes,mg=vk>0?rg/vk:0;
+  const vkNotiz=document.getElementById('vk-notiz').value.trim();
 
   // Verlauf speichern
   hist.unshift({
@@ -605,7 +713,7 @@ function saveVerkauf(){
     plat,ean:curItem.ean,name:curItem.name,cat:document.getElementById('cat-in').value,
     stk,vk,vs,ekGes:+ekGes.toFixed(2),mwst:+mwst.toFixed(2),
     fee:+fee.toFixed(2),feePct:+effPct.toFixed(4),feeLabel:label,
-    gewEK:+gewEK.toFixed(2),rg:+rg.toFixed(2),mg:+mg.toFixed(4)
+    gewEK:+gewEK.toFixed(2),rg:+rg.toFixed(2),mg:+mg.toFixed(4),notiz:vkNotiz
   });
   hsave();
   renderTagesUmsatz();
@@ -630,6 +738,7 @@ function saveVerkauf(){
   document.getElementById('vk-in').value='';
   document.getElementById('stk-in').value='1';
   document.getElementById('vs-in').removeAttribute('data-touched');
+  document.getElementById('vk-notiz').value='';
   document.getElementById('marge-warn').style.display='none';
   curItem=null;selFeeIdx=0;buildFeeToggle();recalc();
 
@@ -669,7 +778,11 @@ function renderHist(){
     <td class="r" style="color:var(--blue)">${r.ekGes.toFixed(2)}€</td>
     <td class="r ${r.rg>=0?'rg-pos':'rg-neg'}">${r.rg.toFixed(2)}€</td>
     <td class="r ${r.rg>=0?'rg-pos':'rg-neg'}" style="font-size:11px">${(r.mg*100).toFixed(1)}%</td>
-    <td><button class="del-btn" onclick="delHist(${r.id})" title="Löschen">✕</button></td>
+    <td style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis">${r.notiz||''}</td>
+    <td style="white-space:nowrap">
+      <button class="edit-btn" onclick="undoVerkauf(${r.id})" title="Rückgängig" style="color:var(--orange)">↩</button>
+      <button class="del-btn" onclick="delHist(${r.id})" title="Löschen">✕</button>
+    </td>
   </tr>`).join('');
 }
 function delHist(id){if(!confirm('Eintrag löschen?'))return;hist=hist.filter(r=>r.id!==id);hsave();updateBadges();renderHist()}
@@ -731,7 +844,11 @@ function openAddForm(){
   document.getElementById('nw-minbestand').value='3';
   document.getElementById('nw-vk').value='';
   document.getElementById('nw-vs').value='3.29';
+  document.getElementById('nw-mwst').value='19';
+  document.getElementById('nw-minmarge').value='0';
+  document.getElementById('nw-lieferant').value='';
   document.getElementById('nw-notiz').value='';
+  document.getElementById('nw-favorit').value='0';
   document.getElementById('add-form').classList.add('open');
   document.getElementById('nw-ean').focus();
 }
@@ -749,7 +866,11 @@ function openEditForm(ean){
   document.getElementById('nw-minbestand').value=r.minBestand||3;
   document.getElementById('nw-vk').value=r.stdVK||'';
   document.getElementById('nw-vs').value=r.stdVS||3.29;
+  document.getElementById('nw-mwst').value=r.mwst||19;
+  document.getElementById('nw-minmarge').value=r.minMarge||0;
+  document.getElementById('nw-lieferant').value=r.lieferant||'';
   document.getElementById('nw-notiz').value=r.notiz||'';
+  document.getElementById('nw-favorit').value=r.favorit?'1':'0';
   document.getElementById('add-form').classList.add('open');
   document.getElementById('nw-name').focus();
 }
@@ -768,16 +889,20 @@ function saveArtikel(){
   const minBestand=parseInt(document.getElementById('nw-minbestand').value)||3;
   const stdVK=parseFloat(document.getElementById('nw-vk').value)||0;
   const stdVS=parseFloat(document.getElementById('nw-vs').value)||3.29;
+  const mwst=parseInt(document.getElementById('nw-mwst').value)||19;
+  const minMarge=parseFloat(document.getElementById('nw-minmarge').value)||0;
+  const lieferant=document.getElementById('nw-lieferant').value.trim();
   const notiz=document.getElementById('nw-notiz').value.trim();
+  const favorit=document.getElementById('nw-favorit').value==='1';
   if(!ean||!name||!ek){alert('Bitte EAN, Name und EK ausfüllen');return}
   if(editEAN){
     const idx=lager.findIndex(r=>r.ean===editEAN);
-    if(idx>=0) lager[idx]={...lager[idx],name,ek,cat,bestand,minBestand,stdVK,stdVS,notiz};
+    if(idx>=0) lager[idx]={...lager[idx],name,ek,cat,bestand,minBestand,stdVK,stdVS,mwst,minMarge,lieferant,notiz,favorit};
   } else {
     if(lager.find(r=>r.ean===ean)){alert('EAN bereits vorhanden');return}
-    lager.push({ean,name,ek,cat,bestand,minBestand,stdVK,stdVS,notiz,verkauftAnz:0,verkauftRG:0,letzterVK:null});
+    lager.push({ean,name,ek,cat,bestand,minBestand,stdVK,stdVS,mwst,minMarge,lieferant,notiz,favorit,verkauftAnz:0,verkauftRG:0,letzterVK:null});
   }
-  lsave();updateBadges();renderLager();closeAddForm();
+  lsave();updateBadges();renderLager();renderLagerSum();closeAddForm();
 }
 
 function delArtikel(ean){
@@ -787,8 +912,8 @@ function delArtikel(ean){
 }
 
 function exportLager(){
-  const hdr='EAN;Artikel;Kategorie;EK netto;Bestand;Mindestbestand;Std-VK;Std-Versand;Verkauft Anz;Ø Gewinn;Notiz\n';
-  const body=lager.map(r=>[r.ean,'"'+r.name+'"',r.cat,r.ek.toFixed(2),r.bestand||0,r.minBestand||3,r.stdVK||0,r.stdVS||3.29,r.verkauftAnz||0,r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2):'','"'+(r.notiz||'')+'"'].join(';')).join('\n');
+  const hdr='EAN;Artikel;Kategorie;EK netto;Bestand;Mindestbestand;Std-VK;Std-Versand;MwSt%;MinMarge%;Lieferant;Notiz;Favorit;Verkauft Anz;Ø Gewinn\n';
+  const body=lager.map(r=>[r.ean,'"'+r.name+'"',r.cat,r.ek.toFixed(2),r.bestand||0,r.minBestand||3,r.stdVK||0,r.stdVS||3.29,r.mwst||19,r.minMarge||0,'"'+(r.lieferant||'')+'"','"'+(r.notiz||'')+'"',r.favorit?'Ja':'Nein',r.verkauftAnz||0,r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2):''].join(';')).join('\n');
   dl('\uFEFF'+hdr+body,'Lagerbestand_'+today()+'.csv','text/csv;charset=utf-8');
 }
 
@@ -900,7 +1025,28 @@ function sortLager(col){
 }
 
 const origRenderLager=renderLager;
+renderLagerSum=function(){
+  const el=document.getElementById('lager-sum');
+  if(!el) return;
+  const anzArtikel=lager.length;
+  const gesamtBestand=lager.reduce((a,r)=>a+(r.bestand||0),0);
+  const gesamtEK=lager.reduce((a,r)=>a+(r.ek*(r.bestand||0)),0);
+  const gesamtVK=lager.reduce((a,r)=>a+((r.stdVK||0)*(r.bestand||0)),0);
+  const warnAnz=lager.filter(r=>stockStatus(r)==='low').length;
+  const outAnz=lager.filter(r=>stockStatus(r)==='out').length;
+  el.innerHTML=`
+    <div class="sc"><div class="sc-l">Verschiedene Artikel</div><div class="sc-v">${anzArtikel}</div></div>
+    <div class="sc"><div class="sc-l">Gesamtbestand (Stk)</div><div class="sc-v b">${gesamtBestand}</div></div>
+    <div class="sc"><div class="sc-l">Warenwert EK</div><div class="sc-v">${gesamtEK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Warenwert VK</div><div class="sc-v g">${gesamtVK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">⚠️ Niedrig</div><div class="sc-v" style="color:var(--orange)">${warnAnz}</div></div>
+    <div class="sc"><div class="sc-l">🔴 Ausverkauft</div><div class="sc-v r">${outAnz}</div></div>`;
+  // Fix grid for 6 items
+  el.style.gridTemplateColumns='repeat(6,minmax(0,1fr))';
+};
+
 renderLager=function(){
+  renderLagerSum();
   const q=(document.getElementById('lager-q').value||'').toLowerCase();
   const flt=document.getElementById('lager-filter').value;
   let rows=lager.filter(r=>{
@@ -910,7 +1056,10 @@ renderLager=function(){
     return true;
   });
   // Sortierung
+  // Favorites always on top
   rows.sort((a,b)=>{
+    if(a.favorit&&!b.favorit) return -1;
+    if(!a.favorit&&b.favorit) return 1;
     let va,vb;
     const col=lagerSort.col;
     if(col==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();return va.localeCompare(vb)*lagerSort.dir;}
@@ -933,17 +1082,26 @@ renderLager=function(){
     const avgRG=r.verkauftAnz>0?(r.verkauftRG/r.verkauftAnz).toFixed(2)+'€':'–';
     const rowCls=st==='out'?'stock-out':st==='low'?'stock-low':'';
     return`<tr class="${rowCls}">
+      <td style="font-size:14px;cursor:pointer" onclick="toggleFavorit('${r.ean}')" title="Favorit">${r.favorit?'⭐':'☆'}</td>
       <td style="color:var(--text3);font-size:11px">${r.ean}</td>
-      <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
+      <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
       <td style="font-size:11px;color:var(--text2)">${r.cat}</td>
       <td class="r" style="color:var(--blue);font-weight:600">${r.ek.toFixed(2)}€</td>
       <td class="r">${r.stdVK>0?r.stdVK.toFixed(2)+'€':'–'}</td>
-      <td class="r">${r.stdVS>0?r.stdVS.toFixed(2)+'€':'–'}</td>
-      <td class="r">${stBadge} <span style="font-size:10px;color:var(--text3)">/ min ${r.minBestand}</span></td>
+      <td class="r" style="font-size:11px;color:var(--text2)">${r.mwst||19}%</td>
+      <td class="r">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+          <button onclick="adjustBestand('${r.ean}',-1)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);cursor:pointer;font-size:13px;line-height:1;color:var(--red)">−</button>
+          ${stBadge}
+          <button onclick="adjustBestand('${r.ean}',1)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);cursor:pointer;font-size:13px;line-height:1;color:var(--green)">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);text-align:right">/ min ${r.minBestand}</div>
+      </td>
       <td class="r" style="color:var(--text2)">${r.verkauftAnz||0}</td>
       <td class="r" style="color:var(--green)">${avgRG}</td>
       <td style="font-size:11px;color:var(--text3)">${r.letzterVK||'–'}</td>
-      <td style="font-size:11px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis">${r.notiz||''}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis">${r.lieferant||''}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis">${r.notiz||''}</td>
       <td style="white-space:nowrap">
         <button class="edit-btn" onclick="openEditForm('${r.ean}')" title="Bearbeiten">✏️</button>
         <button class="del-btn" onclick="delArtikel('${r.ean}')" title="Löschen">✕</button>
@@ -1046,14 +1204,409 @@ function stopScanner(){
   document.getElementById('scanner-modal').style.display='none';
 }
 
+
+
+// ═══ QUICK ADD FROM EAN ═══
+function quickAddFromEAN(){
+  const ean = document.getElementById('ean-in').value.trim();
+  if(!ean) return;
+  // Switch to lager tab and pre-fill EAN
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('act'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('act'));
+  document.querySelectorAll('.ntab')[2].classList.add('act');
+  document.getElementById('pnl-lager').classList.add('act');
+  openAddForm();
+  document.getElementById('nw-ean').value=ean;
+  document.getElementById('nw-name').focus();
+}
+
+// ═══ BESTAND +/- DIREKT IM LAGER ═══
+function toggleFavorit(ean){
+  const idx=lager.findIndex(r=>r.ean===ean);
+  if(idx<0) return;
+  lager[idx].favorit=!lager[idx].favorit;
+  lsave();
+  renderLager();
+}
+
+function adjustBestand(ean, delta){
+  const idx=lager.findIndex(r=>r.ean===ean);
+  if(idx<0) return;
+  const newVal=Math.max(0,(lager[idx].bestand||0)+delta);
+  lager[idx].bestand=newVal;
+  lsave();
+  updateBadges();
+  renderLager();
+}
+
+// ═══ VERKAUF RÜCKGÄNGIG ═══
+function undoVerkauf(id){
+  const v=hist.find(r=>r.id===id);
+  if(!v) return;
+  if(!confirm(`Verkauf rückgängig machen?
+
+${v.name}
+${v.stk} Stück · ${v.vk.toFixed(2)}€
+
+Bestand wird um ${v.stk} erhöht.`)) return;
+  // Restore stock
+  const idx=lager.findIndex(r=>r.ean===v.ean);
+  if(idx>=0){
+    lager[idx].bestand=(lager[idx].bestand||0)+v.stk;
+    lager[idx].verkauftAnz=Math.max(0,(lager[idx].verkauftAnz||0)-v.stk);
+    lager[idx].verkauftRG=(lager[idx].verkauftRG||0)-v.rg;
+    lsave();
+  }
+  hist=hist.filter(r=>r.id!==id);
+  hsave();
+  updateBadges();
+  renderHist();
+  renderTagesUmsatz();
+}
+
+// ═══ TAGESABSCHLUSS DRUCKEN ═══
+function druckenTagesabschluss(){
+  const heute=new Date().toLocaleDateString('de-DE');
+  const tRows=hist.filter(r=>r.ts.startsWith(heute)||r.ts.split(',')[0]===heute);
+  if(!tRows.length){alert('Heute noch keine Verkäufe erfasst.');return}
+  const totVK=tRows.reduce((a,r)=>a+r.vk,0);
+  const totRG=tRows.reduce((a,r)=>a+r.rg,0);
+  const totFee=tRows.reduce((a,r)=>a+r.fee,0);
+  const totEK=tRows.reduce((a,r)=>a+r.ekGes,0);
+  const eRows=tRows.filter(r=>r.plat==='e'), aRows=tRows.filter(r=>r.plat==='a');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tagesabschluss ${heute}</title>
+  <style>
+    body{font-family:sans-serif;padding:20px;max-width:700px;color:#1a1a1a}
+    h2{margin-bottom:2px}p.sub{color:#666;font-size:12px;margin-bottom:16px}
+    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+    .kpi-box{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center}
+    .kpi-l{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px}
+    .kpi-v{font-size:20px;font-weight:700;margin-top:2px}
+    .g{color:#166534}.r{color:#991b1b}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+    .split-box{border:1px solid #ddd;border-radius:8px;padding:12px}
+    .split-box h4{margin-bottom:8px;font-size:13px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:7px 8px;text-align:left;border-bottom:1px solid #eee}
+    th{background:#f5f5f5;font-weight:600}
+    .r{text-align:right}.pos{color:#166534;font-weight:700}.neg{color:#991b1b;font-weight:700}
+    tfoot td{font-weight:700;background:#f5f5f5}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h2>📋 Tagesabschluss</h2>
+  <p class="sub">${heute} · ${tRows.length} Verkäufe</p>
+  <button onclick="window.print()" style="padding:8px 16px;margin-bottom:16px;cursor:pointer;border:1px solid #ccc;border-radius:6px">🖨 Drucken</button>
+  <div class="kpi">
+    <div class="kpi-box"><div class="kpi-l">Verkäufe</div><div class="kpi-v">${tRows.length}</div></div>
+    <div class="kpi-box"><div class="kpi-l">Umsatz brutto</div><div class="kpi-v">${totVK.toFixed(2)}€</div></div>
+    <div class="kpi-box"><div class="kpi-l">Gebühren</div><div class="kpi-v r">${totFee.toFixed(2)}€</div></div>
+    <div class="kpi-box"><div class="kpi-l">Reingewinn</div><div class="kpi-v ${totRG>=0?'g':'r'}">${totRG.toFixed(2)}€</div></div>
+  </div>
+  <div class="split">
+    <div class="split-box"><h4>📦 eBay (${eRows.length} Verkäufe)</h4>
+      <div>Umsatz: <b>${eRows.reduce((a,r)=>a+r.vk,0).toFixed(2)}€</b></div>
+      <div>Gebühren: <b>${eRows.reduce((a,r)=>a+r.fee,0).toFixed(2)}€</b></div>
+      <div>Gewinn: <b class="${eRows.reduce((a,r)=>a+r.rg,0)>=0?'g':'r'}">${eRows.reduce((a,r)=>a+r.rg,0).toFixed(2)}€</b></div>
+    </div>
+    <div class="split-box"><h4>🛒 Amazon (${aRows.length} Verkäufe)</h4>
+      <div>Umsatz: <b>${aRows.reduce((a,r)=>a+r.vk,0).toFixed(2)}€</b></div>
+      <div>Gebühren: <b>${aRows.reduce((a,r)=>a+r.fee,0).toFixed(2)}€</b></div>
+      <div>Gewinn: <b class="${aRows.reduce((a,r)=>a+r.rg,0)>=0?'g':'r'}">${aRows.reduce((a,r)=>a+r.rg,0).toFixed(2)}€</b></div>
+    </div>
+  </div>
+  <h3 style="margin-bottom:8px">Alle Verkäufe</h3>
+  <table><thead><tr>
+    <th>Zeit</th><th>Plattform</th><th>Artikel</th>
+    <th class="r">Stk</th><th class="r">VK</th><th class="r">Gebühr</th>
+    <th class="r">EK</th><th class="r">Gewinn</th><th>Notiz</th>
+  </tr></thead>
+  <tbody>${tRows.map(r=>`<tr>
+    <td>${r.ts.split(',')[1]||''}</td>
+    <td>${r.plat==='e'?'eBay':'Amazon'}</td>
+    <td>${r.name}</td>
+    <td class="r">${r.stk}</td>
+    <td class="r">${r.vk.toFixed(2)}€</td>
+    <td class="r">${r.fee.toFixed(2)}€</td>
+    <td class="r">${r.ekGes.toFixed(2)}€</td>
+    <td class="r ${r.rg>=0?'pos':'neg'}">${r.rg.toFixed(2)}€</td>
+    <td>${r.notiz||''}</td>
+  </tr>`).join('')}</tbody>
+  <tfoot><tr>
+    <td colspan="4">Gesamt (${tRows.length})</td>
+    <td class="r">${totVK.toFixed(2)}€</td>
+    <td class="r">${totFee.toFixed(2)}€</td>
+    <td class="r">${totEK.toFixed(2)}€</td>
+    <td class="r ${totRG>=0?'pos':'neg'}">${totRG.toFixed(2)}€</td>
+    <td></td>
+  </tr></tfoot>
+  </table></body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+
+
+// ═══ EINSTELLUNGEN ═══
+let settings = lsGet('gk_settings') || {
+  vsEbay:3.29, vsAmzn:4.30, minMarge:15, backupDays:1,
+  eDrogerie:12, eElektronik:6.5, eFix:0.45,
+  aDrogerie:15, aDrogerieLow:8, aElektronik:7, aMin:0.30,
+  customCats:[], lastBackup: null
+};
+
+function saveSettings(){
+  settings.vsEbay   = parseFloat(document.getElementById('set-vs-ebay').value)||3.29;
+  settings.vsAmzn   = parseFloat(document.getElementById('set-vs-amzn').value)||4.30;
+  settings.minMarge = parseFloat(document.getElementById('set-marge').value)||15;
+  settings.backupDays = parseInt(document.getElementById('set-backup-days').value)||1;
+  settings.eDrogerie    = parseFloat(document.getElementById('set-e-drogerie').value)||12;
+  settings.eElektronik  = parseFloat(document.getElementById('set-e-elektronik').value)||6.5;
+  settings.eFix         = parseFloat(document.getElementById('set-e-fix').value)||0.45;
+  settings.aDrogerie    = parseFloat(document.getElementById('set-a-drogerie').value)||15;
+  settings.aDrogerieLow = parseFloat(document.getElementById('set-a-drogerie-low').value)||8;
+  settings.aElektronik  = parseFloat(document.getElementById('set-a-elektronik').value)||7;
+  settings.aMin         = parseFloat(document.getElementById('set-a-min').value)||0.30;
+  lsSet('gk_settings', settings);
+  // Update fee tables dynamically
+  E_FEES.Drogerie[0].p  = settings.eDrogerie/100;
+  E_FEES.Drogerie[0].fix= settings.eFix;
+  E_FEES.Elektronik[0].p= settings.eElektronik/100;
+  E_FEES.Elektronik[0].fix=settings.eFix;
+  A_FEES.Drogerie[0].p  = settings.aDrogerie/100;
+  A_FEES.Drogerie[0].min= settings.aMin;
+  A_FEES.Drogerie[1].p  = settings.aDrogerieLow/100;
+  A_FEES.Elektronik[0].p= settings.aElektronik/100;
+  recalc();
+}
+
+function loadSettings(){
+  document.getElementById('set-vs-ebay').value   = settings.vsEbay;
+  document.getElementById('set-vs-amzn').value   = settings.vsAmzn;
+  document.getElementById('set-marge').value      = settings.minMarge;
+  document.getElementById('set-backup-days').value= settings.backupDays;
+  document.getElementById('set-e-drogerie').value = settings.eDrogerie;
+  document.getElementById('set-e-elektronik').value=settings.eElektronik;
+  document.getElementById('set-e-fix').value      = settings.eFix;
+  document.getElementById('set-a-drogerie').value = settings.aDrogerie;
+  document.getElementById('set-a-drogerie-low').value=settings.aDrogerieLow;
+  document.getElementById('set-a-elektronik').value=settings.aElektronik;
+  document.getElementById('set-a-min').value      = settings.aMin;
+  renderCustomCats();
+}
+
+function addCustomCat(){
+  const inp=document.getElementById('new-cat-name');
+  const name=inp.value.trim();
+  if(!name) return;
+  if(!settings.customCats) settings.customCats=[];
+  if(settings.customCats.includes(name)){alert('Kategorie existiert bereits');return}
+  settings.customCats.push(name);
+  lsSet('gk_settings',settings);
+  inp.value='';
+  renderCustomCats();
+  // Add to selects
+  addCatToSelects(name);
+}
+
+function delCustomCat(name){
+  settings.customCats=settings.customCats.filter(c=>c!==name);
+  lsSet('gk_settings',settings);
+  renderCustomCats();
+}
+
+function renderCustomCats(){
+  const el=document.getElementById('custom-cats-list');
+  if(!settings.customCats||!settings.customCats.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text3)">Noch keine eigenen Kategorien</div>';
+    return;
+  }
+  el.innerHTML=settings.customCats.map(c=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px">
+      <span>${c}</span>
+      <button onclick="delCustomCat('${c}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">✕</button>
+    </div>`).join('');
+}
+
+function addCatToSelects(name){
+  ['cat-in','nw-cat'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(sel&&![...sel.options].find(o=>o.value===name)){
+      const opt=document.createElement('option');
+      opt.value=name;opt.textContent=name;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+function initCustomCats(){
+  if(settings.customCats) settings.customCats.forEach(addCatToSelects);
+}
+
+// ═══ BACKUP BANNER ═══
+function checkBackupReminder(){
+  if(!settings.lastBackup) return; // never exported = no nag
+  const days=(Date.now()-new Date(settings.lastBackup).getTime())/(1000*60*60*24);
+  if(days>=settings.backupDays){
+    document.getElementById('backup-banner').style.display='flex';
+  }
+}
+
+function hideBanner(){
+  document.getElementById('backup-banner').style.display='none';
+}
+
+// Override exportJSON to track last backup time
+const _origExportJSON=exportJSON;
+exportJSON=function(){
+  _origExportJSON();
+  settings.lastBackup=new Date().toISOString();
+  lsSet('gk_settings',settings);
+  hideBanner();
+};
+
+// ═══ AUSWERTUNGEN ═══
+function renderStats(){
+  const days=document.getElementById('stats-range').value;
+  const pf=document.getElementById('stats-plat').value;
+  const now=Date.now();
+  let rows=[...hist];
+  if(days!=='all'){
+    const cutoff=now-parseInt(days)*24*60*60*1000;
+    rows=rows.filter(r=>new Date(r.id)>=cutoff);
+  }
+  if(pf) rows=rows.filter(r=>r.plat===pf);
+
+  // KPIs
+  const totVK=rows.reduce((a,r)=>a+r.vk,0);
+  const totRG=rows.reduce((a,r)=>a+r.rg,0);
+  const totFee=rows.reduce((a,r)=>a+r.fee,0);
+  const totEK=rows.reduce((a,r)=>a+r.ekGes,0);
+  document.getElementById('stats-kpi').innerHTML=`
+    <div class="sc"><div class="sc-l">Verkäufe</div><div class="sc-v">${rows.length}</div></div>
+    <div class="sc"><div class="sc-l">Umsatz brutto</div><div class="sc-v">${totVK.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Reingewinn</div><div class="sc-v ${totRG>=0?'g':'r'}">${totRG.toFixed(2)}€</div></div>
+    <div class="sc"><div class="sc-l">Ø Marge</div><div class="sc-v ${totRG>=0?'g':'r'}">${totVK>0?((totRG/totVK)*100).toFixed(1)+'%':'–'}</div></div>`;
+
+  // Top 10 nach Volumen
+  const byEAN={};
+  rows.forEach(r=>{
+    if(!byEAN[r.ean]) byEAN[r.ean]={name:r.name,stk:0,rg:0};
+    byEAN[r.ean].stk+=r.stk;
+    byEAN[r.ean].rg+=r.rg;
+  });
+  const sorted=Object.values(byEAN).sort((a,b)=>b.stk-a.stk).slice(0,10);
+  const topProfit=Object.values(byEAN).sort((a,b)=>b.rg-a.rg).slice(0,10);
+
+  const rankList=(arr,valFn)=>arr.length?arr.map((r,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px">
+      <span><b style="color:var(--text3);margin-right:6px">${i+1}.</b>${r.name.length>25?r.name.slice(0,25)+'…':r.name}</span>
+      <span style="font-weight:600;white-space:nowrap;margin-left:8px">${valFn(r)}</span>
+    </div>`).join('')
+    :'<div style="font-size:12px;color:var(--text3);padding:12px 0">Keine Daten</div>';
+
+  document.getElementById('stats-top-vol').innerHTML=rankList(sorted,r=>`${r.stk} Stk`);
+  document.getElementById('stats-top-profit').innerHTML=rankList(topProfit,r=>`${r.rg.toFixed(2)}€`);
+
+  // eBay vs Amazon
+  const eR=rows.filter(r=>r.plat==='e'), aR=rows.filter(r=>r.plat==='a');
+  const platRow=(lbl,r,cls)=>{
+    const vk=r.reduce((a,x)=>a+x.vk,0),rg=r.reduce((a,x)=>a+x.rg,0);
+    return`<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:6px;background:var(--bg3);margin-bottom:6px">
+      <span style="font-weight:600">${lbl}</span>
+      <span>${r.length} Verk.</span>
+      <span>${vk.toFixed(2)}€</span>
+      <span style="font-weight:700;color:${rg>=0?'var(--green)':'var(--red)'}">${rg.toFixed(2)}€</span>
+    </div>`;
+  };
+  document.getElementById('stats-plat-compare').innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);padding:0 10px;margin-bottom:4px">
+      <span>Plattform</span><span>Verkäufe</span><span>Umsatz</span><span>Gewinn</span>
+    </div>
+    ${platRow('📦 eBay',eR,'e')}${platRow('🛒 Amazon',aR,'a')}`;
+
+  // Einkaufsliste
+  const einkauf=lager.filter(r=>stockStatus(r)!=='ok').sort((a,b)=>(a.bestand||0)-(b.bestand||0));
+  document.getElementById('stats-einkauf').innerHTML=einkauf.length
+    ?einkauf.map(r=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px">
+        <span title="${r.name}">${r.name.length>22?r.name.slice(0,22)+'…':r.name}</span>
+        <span style="white-space:nowrap;margin-left:8px;color:${r.bestand<=0?'var(--red)':'var(--orange)'}">
+          ${r.bestand}/${r.minBestand} Stk
+        </span>
+      </div>`).join('')
+    :'<div style="font-size:12px;color:var(--green);padding:12px 0">✅ Alles ausreichend vorrätig</div>';
+
+  // Zuletzt verkauft (letzte 10 unique Artikel)
+  const seen=new Set(), recent=[];
+  for(const r of hist){
+    if(!seen.has(r.ean)){seen.add(r.ean);recent.push(r);if(recent.length>=10) break;}
+  }
+  document.getElementById('stats-recent').innerHTML=recent.length
+    ?recent.map(r=>`<button onclick="quickFill('${r.ean}')" style="padding:6px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg2);color:var(--text);cursor:pointer;font-size:11px;white-space:nowrap">
+        ${r.name.length>18?r.name.slice(0,18)+'…':r.name}
+      </button>`).join('')
+    :'<div style="font-size:12px;color:var(--text3)">Noch keine Verkäufe</div>';
+}
+
+function quickFill(ean){
+  // Switch to Verkauf tab and fill EAN
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('act'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('act'));
+  document.querySelector('.ntab').classList.add('act');
+  document.getElementById('pnl-vk').classList.add('act');
+  document.getElementById('ean-in').value=ean;
+  lookupEAN();
+  document.getElementById('ean-in').focus();
+}
+
+// ═══ EINKAUFSLISTE DRUCKEN / EXPORT ═══
+function druckenEinkauf(){
+  const einkauf=lager.filter(r=>stockStatus(r)!=='ok').sort((a,b)=>(a.bestand||0)-(b.bestand||0));
+  if(!einkauf.length){alert('Alle Artikel sind ausreichend vorrätig!');return}
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Einkaufsliste</title>
+    <style>body{font-family:sans-serif;padding:20px;max-width:600px}h2{margin-bottom:4px}
+    p{color:#666;font-size:12px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}
+    th{background:#f5f5f5;font-weight:600}
+    .low{color:#d97706}.out{color:#dc2626;font-weight:700}
+    @media print{button{display:none}}</style></head><body>
+    <h2>🛒 Einkaufsliste</h2>
+    <p>Erstellt: ${new Date().toLocaleString('de-DE')} · ${einkauf.length} Artikel unter Mindestbestand</p>
+    <button onclick="window.print()" style="padding:8px 16px;margin-bottom:16px;cursor:pointer">🖨 Drucken</button>
+    <table><thead><tr><th>Artikel</th><th>EAN</th><th>Bestand</th><th>Mindest</th><th>Nachbestellen</th></tr></thead>
+    <tbody>${einkauf.map(r=>`<tr>
+      <td>${r.name}</td><td style="font-size:11px;color:#666">${r.ean}</td>
+      <td class="${r.bestand<=0?'out':'low'}">${r.bestand}</td>
+      <td>${r.minBestand}</td>
+      <td><b>${Math.max(0,r.minBestand-r.bestand+(r.minBestand||3))} Stk</b></td>
+    </tr>`).join('')}</tbody></table>
+    </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
+function exportEinkaufCSV(){
+  const einkauf=lager.filter(r=>stockStatus(r)!=='ok').sort((a,b)=>(a.bestand||0)-(b.bestand||0));
+  if(!einkauf.length){alert('Alle Artikel sind ausreichend vorrätig!');return}
+  const hdr='EAN;Artikel;Kategorie;EK netto;Bestand;Mindestbestand;Nachbestellen
+';
+  const body=einkauf.map(r=>[r.ean,'"'+r.name+'"',r.cat,r.ek.toFixed(2),r.bestand||0,r.minBestand||3,Math.max(0,r.minBestand-r.bestand+(r.minBestand||3))].join(';')).join('
+');
+  dl('﻿'+hdr+body,'Einkaufsliste_'+today()+'.csv','text/csv;charset=utf-8');
+}
+
+
 // ═══ INIT ═══
 selPlat('e');
 buildFeeToggle();
 updateBadges();
 renderLager();
+renderLagerSum();
 renderHist();
 renderTagesUmsatz();
-// Autofokus EAN beim Start
+loadSettings();
+initCustomCats();
+checkBackupReminder();
 setTimeout(()=>document.getElementById('ean-in').focus(),300);
 </script>
 </body>
