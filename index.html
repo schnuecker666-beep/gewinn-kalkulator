@@ -68,6 +68,9 @@ header h1 span{font-size:10px;font-weight:400;color:var(--text2);background:var(
 .feebtn.sel-e{border-color:var(--ebay-b);background:var(--ebay-bg);color:var(--ebay-c)}
 .feebtn.sel-a{border-color:var(--amzn-b);background:var(--amzn-bg);color:var(--amzn-c)}
 .feebtn.sel-l{border-color:var(--low-b);background:var(--low-bg);color:var(--low-c)}
+.ebtn{padding:5px 10px;font-size:11px;font-weight:500;border:1.5px solid var(--border);border-radius:20px;background:var(--bg2);color:var(--text2);cursor:pointer;font-family:var(--font);transition:all .15s}
+.ebtn:hover{background:var(--bg3)}
+.ebtn.act{border-color:var(--blue);background:#dbeafe;color:var(--blue)}
 /* RESULT */
 .result{background:var(--bg3);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;border:1px solid var(--border2)}
 .rgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -210,9 +213,27 @@ tr.sout td{background:color-mix(in srgb,var(--ebay-bg) 40%,transparent)}
     <div class="card">
       <div class="ctitle">Verkaufsdetails</div>
       <div class="field">
-        <label>Stückzahl</label>
+        <label>Stückzahl (Anzahl Pakete / Einheiten)</label>
         <input id="stk-in" type="number" min="1" value="1" oninput="recalc()">
         <div class="hint" id="ek-hint"></div>
+      </div>
+      <div class="field">
+        <label>Einheit (Artikel pro Paket)</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px" id="einheit-btns">
+          <button class="ebtn act" onclick="setEinheit(1,this)">1er</button>
+          <button class="ebtn" onclick="setEinheit(2,this)">2er</button>
+          <button class="ebtn" onclick="setEinheit(3,this)">3er</button>
+          <button class="ebtn" onclick="setEinheit(4,this)">4er</button>
+          <button class="ebtn" onclick="setEinheit(5,this)">5er</button>
+          <button class="ebtn" onclick="setEinheit(6,this)">6er</button>
+          <button class="ebtn" onclick="setEinheit(10,this)">10er</button>
+          <button class="ebtn" onclick="setEinheit(12,this)">12er</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text2)">Eigene:</span>
+          <input id="einheit-custom" type="number" min="1" value="" placeholder="z.B. 8" style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:12px;font-family:var(--font)" oninput="setEinheitCustom(this.value)">
+        </div>
+        <div class="hint" id="einheit-hint"></div>
       </div>
       <div class="field">
         <label>VK gesamt inkl. MwSt (€)</label>
@@ -261,7 +282,7 @@ tr.sout td{background:color-mix(in srgb,var(--ebay-bg) 40%,transparent)}
       <div class="ritem"><div class="rl">MwSt</div><div class="rv" id="r-mwst">–</div></div>
       <div class="ritem"><div class="rl">Gebühr</div><div class="rv" id="r-geb">–</div><div class="rsub" id="r-geb-pct"></div></div>
       <div class="ritem"><div class="rl">Versand</div><div class="rv" id="r-vs">–</div></div>
-      <div class="ritem"><div class="rl">EK (×<span id="r-stk">1</span>)</div><div class="rv b" id="r-ek">–</div></div>
+      <div class="ritem"><div class="rl">EK (<span id="r-stk">1</span> Stk)</div><div class="rv b" id="r-ek">–</div></div>
       <div class="ritem"><div class="rl">Gewinn+EK</div><div class="rv" id="r-gew">–</div></div>
       <div class="ritem"><div class="rl">Reingewinn</div><div class="rv" id="r-rg">–</div></div>
       <div class="ritem"><div class="rl">Marge</div><div class="rv" id="r-mg">–</div></div>
@@ -524,6 +545,7 @@ function getAFees(){return{
 // ══ STATE ══
 function migrate(arr){return arr.map(r=>Object.assign({favorit:false,lieferant:'',mwst:19,minMarge:0,bestand:0,minBestand:3,stdVK:0,stdVS:3.29,notiz:'',verkauftAnz:0,verkauftRG:0,letzterVK:null},r));}
 let lager=migrate(lsGet('gk_lager')||INIT);
+let einheit=1; // Artikel pro Paket
 let hist=lsGet('gk_hist')||[];
 let plat='e',curItem=null,feeIdx=0,editEAN=null;
 let lSort={col:'name',dir:1};
@@ -605,7 +627,9 @@ function lookupEAN(){
     document.getElementById('art-in').value=r.name;
     document.getElementById('ek-in').value=r.ek.toFixed(2)+'€  (pro Stück)';
     document.getElementById('bestand-in').value=r.bestand+' Stück'+(r.favorit?' ⭐':'')+(r.lieferant?' · '+r.lieferant:'');
-    if(r.stdVK>0)document.getElementById('vk-in').value=r.stdVK.toFixed(2);
+    updateEinheitHint();
+    resetEinheit();
+    if(r.stdVK>0)document.getElementById('vk-in').value=(r.stdVK*einheit).toFixed(2);
     const vs=document.getElementById('vs-in');
     if(!vs.dataset.touched)vs.value=r.stdVS||CFG.vsEbay;
     const sel=document.getElementById('cat-in');
@@ -621,6 +645,46 @@ function lookupEAN(){
 }
 document.getElementById('vs-in').addEventListener('input',function(){this.dataset.touched='1';recalc();});
 
+// ══ EINHEIT ══
+function setEinheit(n, btn){
+  einheit=n;
+  document.querySelectorAll('.ebtn').forEach(b=>b.classList.remove('act'));
+  if(btn) btn.classList.add('act');
+  document.getElementById('einheit-custom').value='';
+  updateEinheitHint();
+  // Auto-fill VK based on einheit
+  if(curItem&&curItem.stdVK>0){
+    document.getElementById('vk-in').value=(curItem.stdVK*n).toFixed(2);
+  }
+  recalc();
+}
+
+function setEinheitCustom(val){
+  const n=parseInt(val)||1;
+  einheit=n;
+  document.querySelectorAll('.ebtn').forEach(b=>b.classList.remove('act'));
+  updateEinheitHint();
+  if(curItem&&curItem.stdVK>0){
+    document.getElementById('vk-in').value=(curItem.stdVK*n).toFixed(2);
+  }
+  recalc();
+}
+
+function resetEinheit(){
+  einheit=1;
+  document.querySelectorAll('.ebtn').forEach((b,i)=>{b.classList.toggle('act',i===0);});
+  document.getElementById('einheit-custom').value='';
+  updateEinheitHint();
+}
+
+function updateEinheitHint(){
+  const el=document.getElementById('einheit-hint');
+  if(!el) return;
+  if(einheit<=1){el.textContent='';return;}
+  const ek=curItem?curItem.ek:0;
+  el.textContent=einheit+'er Pack · EK pro Pack: '+(ek*einheit).toFixed(2)+'€ · Bestand wird um '+einheit+' reduziert';
+}
+
 // ══ CALC ══
 function calcFee(vk){
   const opts=getFeeOpts();const o=opts[feeIdx]||opts[0];
@@ -632,9 +696,12 @@ function recalc(){
   const vk=parseFloat(document.getElementById('vk-in').value)||0;
   const vs=parseFloat(document.getElementById('vs-in').value)||0;
   const stk=Math.max(1,parseInt(document.getElementById('stk-in').value)||1);
-  const ek=curItem?curItem.ek:0,ekGes=ek*stk;
+  const ek=curItem?curItem.ek:0;
+  const totalItems=stk*einheit; // total individual articles
+  const ekGes=ek*totalItems;
   document.getElementById('r-stk').textContent=stk;
-  document.getElementById('ek-hint').textContent=curItem?'EK gesamt: '+ekGes.toFixed(2)+'€ ('+stk+'×'+ek.toFixed(2)+'€)':'';
+  const packInfo=einheit>1?' ('+stk+'×'+einheit+'er='+totalItems+' Stk)':'';
+  document.getElementById('ek-hint').textContent=curItem?'EK gesamt: '+ekGes.toFixed(2)+'€ ('+totalItems+'×'+ek.toFixed(2)+'€)'+packInfo:'';
   const ok=vk>0&&curItem;
   document.getElementById('btn-save').disabled=!ok;
   const set=(id,v,cls)=>{const el=document.getElementById(id);el.textContent=v;el.className='rv'+(cls?' '+cls:'');};
@@ -675,7 +742,8 @@ function saveVerkauf(){
   const stk=Math.max(1,parseInt(document.getElementById('stk-in').value)||1);
   const notiz=document.getElementById('vk-notiz').value.trim();
   if(!curItem||!vk)return;
-  const ekGes=curItem.ek*stk;
+  const totalItems=stk*einheit;
+  const ekGes=curItem.ek*totalItems;
   const mwstPct=(curItem.mwst)||19;
   const mwst=vk/(1+mwstPct/100)*(mwstPct/100);
   const {fee,label}=calcFee(vk);
@@ -683,12 +751,13 @@ function saveVerkauf(){
   const gewEK=vk-vs-mwst-fee;
   const rg=gewEK-ekGes;
   const mg=vk>0?rg/vk:0;
-  hist.unshift({id:Date.now(),ts:new Date().toLocaleString('de-DE'),plat,ean:curItem.ean,name:curItem.name,cat:document.getElementById('cat-in').value,stk,vk,vs,ekGes:+ekGes.toFixed(2),mwst:+mwst.toFixed(2),fee:+fee.toFixed(2),feePct:+effPct.toFixed(4),feeLabel:label,gewEK:+gewEK.toFixed(2),rg:+rg.toFixed(2),mg:+mg.toFixed(4),notiz});
+  const packLabel=einheit>1?stk+'×'+einheit+'er ('+totalItems+' Stk)':stk+' Stk';
+  hist.unshift({id:Date.now(),ts:new Date().toLocaleString('de-DE'),plat,ean:curItem.ean,name:curItem.name,cat:document.getElementById('cat-in').value,stk,einheit,totalItems,packLabel,vk,vs,ekGes:+ekGes.toFixed(2),mwst:+mwst.toFixed(2),fee:+fee.toFixed(2),feePct:+effPct.toFixed(4),feeLabel:label,gewEK:+gewEK.toFixed(2),rg:+rg.toFixed(2),mg:+mg.toFixed(4),notiz});
   hsave();
   // reduce stock
   const idx=lager.findIndex(r=>r.ean===curItem.ean);
   if(idx>=0){
-    lager[idx].bestand=Math.max(0,(lager[idx].bestand||0)-stk);
+    lager[idx].bestand=Math.max(0,(lager[idx].bestand||0)-totalItems);
     lager[idx].verkauftAnz=(lager[idx].verkauftAnz||0)+stk;
     lager[idx].verkauftRG=(lager[idx].verkauftRG||0)+rg;
     lager[idx].letzterVK=new Date().toLocaleDateString('de-DE');
@@ -697,6 +766,7 @@ function saveVerkauf(){
   updateBadges();renderTagesBar();
   // reset
   ['ean-in','art-in','ek-in','bestand-in','vk-in','vk-notiz'].forEach(id=>document.getElementById(id).value='');
+  resetEinheit();
   document.getElementById('stk-in').value='1';
   document.getElementById('vs-in').removeAttribute('data-touched');
   curItem=null;feeIdx=0;buildFeeUI();recalc();
@@ -743,7 +813,7 @@ function renderHist(){
     <td style="color:var(--text3);font-size:11px">${r.ts}</td>
     <td><span class="pbadge ${r.plat==='e'?'pe':'pa'}">${r.plat==='e'?'eBay':'Amazon'}</span></td>
     <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.name}">${r.name}</td>
-    <td class="r">${r.stk}</td><td class="r">${r.vk.toFixed(2)}€</td><td class="r">${r.vs.toFixed(2)}€</td>
+    <td class="r" title="${r.packLabel||r.stk+' Stk'}">${r.packLabel||r.stk}</td><td class="r">${r.vk.toFixed(2)}€</td><td class="r">${r.vs.toFixed(2)}€</td>
     <td class="r" style="color:var(--text2)">${r.fee.toFixed(2)}€</td>
     <td class="r" style="font-size:11px;color:var(--text3)">${r.feePct?(r.feePct*100).toFixed(2)+'%':'–'}</td>
     <td class="r" style="color:var(--blue)">${r.ekGes.toFixed(2)}€</td>
